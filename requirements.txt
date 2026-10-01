@@ -1,0 +1,11 @@
+# CPU-only PyTorch is enough for Maya's small models.
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch==2.14.0
+transformers==5.17.0
+safetensors==0.8.0
+sentencepiece
+tiktoken
+protobuf
+numpy==2.5.3
+scikit-learn
+huggingface_hub==1.33.0
