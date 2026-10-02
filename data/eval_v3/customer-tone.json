@@ -1,0 +1,111 @@
+{
+  "domain": "customer-tone",
+  "description": "Messages from customers, judged for tone (new phrasing, new statements).",
+  "questions": {
+    "key": {
+      "type": "noul",
+      "instructions": "The writer is annoyed or angry"
+    },
+    "not_key": {
+      "type": "noul",
+      "instructions": "The writer is not annoyed"
+    },
+    "s2": {
+      "type": "noul",
+      "instructions": "The writer threatens to cancel, leave or escalate"
+    },
+    "s3": {
+      "type": "noul",
+      "instructions": "The writer reports a problem"
+    }
+  },
+  "relations": {
+    "negations": [
+      [
+        "key",
+        "not_key"
+      ]
+    ],
+    "implications": [
+      [
+        "s2",
+        "key"
+      ]
+    ],
+    "minimal_pairs_flip": "key"
+  },
+  "cases": [
+    {
+      "id": "test-ct-01",
+      "state": "Third email this week. The sync STILL drops half my contacts. I'm done being patient, sort it out or I'm moving the whole team to another tool.",
+      "expected": {
+        "key": true,
+        "not_key": false,
+        "s2": true,
+        "s3": true
+      },
+      "pair": "test-ct-p1",
+      "trap": false
+    },
+    {
+      "id": "test-ct-02",
+      "state": "Third email this week, sorry for the noise! The sync still drops a few contacts, but no rush at all, whenever you get a chance.",
+      "expected": {
+        "key": false,
+        "not_key": true,
+        "s2": false,
+        "s3": true
+      },
+      "pair": "test-ct-p1",
+      "trap": false
+    },
+    {
+      "id": "test-ct-03",
+      "state": "Oh great, another 'quick update' that logged everyone out. Fantastic work, really. Just what I needed before my demo.",
+      "expected": {
+        "key": true,
+        "not_key": false,
+        "s2": false,
+        "s3": true
+      },
+      "pair": "test-ct-p2",
+      "trap": false
+    },
+    {
+      "id": "test-ct-04",
+      "state": "Quick heads-up: the update logged everyone out this morning. We signed back in and all is fine now, thanks for the fast release notes.",
+      "expected": {
+        "key": false,
+        "not_key": true,
+        "s2": false,
+        "s3": true
+      },
+      "pair": "test-ct-p2",
+      "trap": false
+    },
+    {
+      "id": "test-ct-05",
+      "state": "I'm not angry, just curious: is there a keyboard shortcut for archiving?",
+      "expected": {
+        "key": false,
+        "not_key": true,
+        "s2": false,
+        "s3": false
+      },
+      "pair": "test-ct-p3",
+      "trap": true
+    },
+    {
+      "id": "test-ct-06",
+      "state": "Not curious anymore, just angry: nobody has answered my billing question in two weeks. If I don't hear back today I'm taking this to your CEO.",
+      "expected": {
+        "key": true,
+        "not_key": false,
+        "s2": true,
+        "s3": true
+      },
+      "pair": "test-ct-p3",
+      "trap": true
+    }
+  ]
+}

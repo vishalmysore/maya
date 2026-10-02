@@ -1,0 +1,63 @@
+{
+  "domain": "account-security",
+  "description": "Account security alerts reviewed by an IT administrator.",
+  "questions": {
+    "key": {
+      "type": "noul",
+      "instructions": "The account may be compromised"
+    },
+    "not_key": {
+      "type": "noul",
+      "instructions": "There is no sign that the account is compromised"
+    },
+    "s2": {
+      "type": "noul",
+      "instructions": "There was a sign-in from an unrecognized device or location"
+    },
+    "s3": {
+      "type": "noul",
+      "instructions": "The account owner needs to take action"
+    }
+  },
+  "relations": {
+    "negations": [
+      [
+        "key",
+        "not_key"
+      ]
+    ],
+    "implications": [
+      [
+        "s2",
+        "key"
+      ]
+    ],
+    "minimal_pairs_flip": "key"
+  },
+  "cases": [
+    {
+      "id": "dev-as-01",
+      "state": "The password on a.kim@ was changed from her usual phone; she requested it herself through the help desk.",
+      "expected": {
+        "key": false,
+        "not_key": true,
+        "s2": false,
+        "s3": false
+      },
+      "pair": "dev-as-p1",
+      "trap": false
+    },
+    {
+      "id": "dev-as-02",
+      "state": "The password on a.kim@ was changed from an unknown device in another country; she says she did not change it.",
+      "expected": {
+        "key": true,
+        "not_key": false,
+        "s2": true,
+        "s3": true
+      },
+      "pair": "dev-as-p1",
+      "trap": false
+    }
+  ]
+}

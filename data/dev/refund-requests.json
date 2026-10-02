@@ -1,0 +1,67 @@
+{
+  "domain": "refund-requests",
+  "description": "Refund requests with the shop's policy stated in the text.",
+  "questions": {
+    "key": {
+      "type": "noul",
+      "instructions": "The refund should be issued"
+    },
+    "not_key": {
+      "type": "noul",
+      "instructions": "The refund should not be issued"
+    },
+    "s2": {
+      "type": "noul",
+      "instructions": "The customer has proof of purchase"
+    },
+    "s3": {
+      "type": "noul",
+      "instructions": "The request is within the return window"
+    }
+  },
+  "relations": {
+    "negations": [
+      [
+        "key",
+        "not_key"
+      ]
+    ],
+    "implications": [
+      [
+        "key",
+        "s2"
+      ],
+      [
+        "key",
+        "s3"
+      ]
+    ],
+    "minimal_pairs_flip": "key"
+  },
+  "cases": [
+    {
+      "id": "dev-rr-01",
+      "state": "Policy: refunds within 14 days with a receipt. A jacket bought 5 days ago, tags still on, receipt attached; the customer wants a refund.",
+      "expected": {
+        "key": true,
+        "not_key": false,
+        "s2": true,
+        "s3": true
+      },
+      "pair": "dev-rr-p1",
+      "trap": false
+    },
+    {
+      "id": "dev-rr-02",
+      "state": "Policy: refunds within 14 days with a receipt. A jacket bought 20 days ago, tags still on, receipt attached; the customer wants a refund.",
+      "expected": {
+        "key": false,
+        "not_key": true,
+        "s2": true,
+        "s3": false
+      },
+      "pair": "dev-rr-p1",
+      "trap": false
+    }
+  ]
+}

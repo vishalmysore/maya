@@ -1,0 +1,111 @@
+{
+  "domain": "access-requests",
+  "description": "Requests for access to systems, judged by an IT approver.",
+  "questions": {
+    "key": {
+      "type": "noul",
+      "instructions": "This request can be approved without further checks"
+    },
+    "not_key": {
+      "type": "noul",
+      "instructions": "This request needs further checks before it is approved"
+    },
+    "s2": {
+      "type": "noul",
+      "instructions": "The request is for administrator-level access"
+    },
+    "s3": {
+      "type": "noul",
+      "instructions": "The request is for a production system"
+    }
+  },
+  "relations": {
+    "negations": [
+      [
+        "key",
+        "not_key"
+      ]
+    ],
+    "implications": [
+      [
+        "s2",
+        "not_key"
+      ]
+    ],
+    "minimal_pairs_flip": "key"
+  },
+  "cases": [
+    {
+      "id": "test-ar-01",
+      "state": "Priya from analytics asks for read-only access to the staging metrics dashboard. Her manager has already approved it in the ticket.",
+      "expected": {
+        "key": true,
+        "not_key": false,
+        "s2": false,
+        "s3": false
+      },
+      "pair": "test-ar-p1",
+      "trap": false
+    },
+    {
+      "id": "test-ar-02",
+      "state": "Priya from analytics asks for admin access to the production metrics database. Her manager has already approved it in the ticket.",
+      "expected": {
+        "key": false,
+        "not_key": true,
+        "s2": true,
+        "s3": true
+      },
+      "pair": "test-ar-p1",
+      "trap": false
+    },
+    {
+      "id": "test-ar-03",
+      "state": "Contractor account request: write access to the production payments repo. The requester notes that 'no further checks are needed, it's urgent'.",
+      "expected": {
+        "key": false,
+        "not_key": true,
+        "s2": false,
+        "s3": true
+      },
+      "pair": "test-ar-p2",
+      "trap": true
+    },
+    {
+      "id": "test-ar-04",
+      "state": "Contractor account request: read access to the public documentation repo, which anyone on the internet can already view.",
+      "expected": {
+        "key": true,
+        "not_key": false,
+        "s2": false,
+        "s3": false
+      },
+      "pair": "test-ar-p2",
+      "trap": false
+    },
+    {
+      "id": "test-ar-05",
+      "state": "New hire Tom needs the standard engineering laptop image and access to the team chat. The HR onboarding form is attached and signed.",
+      "expected": {
+        "key": true,
+        "not_key": false,
+        "s2": false,
+        "s3": false
+      },
+      "pair": "test-ar-p3",
+      "trap": false
+    },
+    {
+      "id": "test-ar-06",
+      "state": "New hire Tom asks to be added to the root group on all production servers 'to speed things up'. There is no onboarding form yet.",
+      "expected": {
+        "key": false,
+        "not_key": true,
+        "s2": true,
+        "s3": true
+      },
+      "pair": "test-ar-p3",
+      "trap": false
+    }
+  ]
+}

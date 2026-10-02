@@ -1,0 +1,63 @@
+{
+  "domain": "landlord-notices",
+  "description": "Notices from a building manager to tenants.",
+  "questions": {
+    "key": {
+      "type": "noul",
+      "instructions": "The tenant needs to be at home for this"
+    },
+    "not_key": {
+      "type": "noul",
+      "instructions": "The tenant does not need to be at home for this"
+    },
+    "s2": {
+      "type": "noul",
+      "instructions": "Someone will enter the apartment"
+    },
+    "s3": {
+      "type": "noul",
+      "instructions": "The notice is about a safety check"
+    }
+  },
+  "relations": {
+    "negations": [
+      [
+        "key",
+        "not_key"
+      ]
+    ],
+    "implications": [
+      [
+        "key",
+        "s2"
+      ]
+    ],
+    "minimal_pairs_flip": "key"
+  },
+  "cases": [
+    {
+      "id": "dev-ln-01",
+      "state": "The parcel lockers in the lobby are being replaced on Wednesday; nobody will visit apartments.",
+      "expected": {
+        "key": false,
+        "not_key": true,
+        "s2": false,
+        "s3": false
+      },
+      "pair": "dev-ln-p1",
+      "trap": false
+    },
+    {
+      "id": "dev-ln-02",
+      "state": "A plumber will fix the leaking pipe under your sink on Wednesday at 10; please be home to let him in.",
+      "expected": {
+        "key": true,
+        "not_key": false,
+        "s2": true,
+        "s3": false
+      },
+      "pair": "dev-ln-p1",
+      "trap": false
+    }
+  ]
+}

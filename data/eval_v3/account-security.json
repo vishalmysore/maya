@@ -1,0 +1,111 @@
+{
+  "domain": "account-security",
+  "description": "Account security alerts reviewed by an IT administrator.",
+  "questions": {
+    "key": {
+      "type": "noul",
+      "instructions": "The account may be compromised"
+    },
+    "not_key": {
+      "type": "noul",
+      "instructions": "There is no sign that the account is compromised"
+    },
+    "s2": {
+      "type": "noul",
+      "instructions": "There was a sign-in from an unrecognized device or location"
+    },
+    "s3": {
+      "type": "noul",
+      "instructions": "The account owner needs to take action"
+    }
+  },
+  "relations": {
+    "negations": [
+      [
+        "key",
+        "not_key"
+      ]
+    ],
+    "implications": [
+      [
+        "s2",
+        "key"
+      ]
+    ],
+    "minimal_pairs_flip": "key"
+  },
+  "cases": [
+    {
+      "id": "test-as-01",
+      "state": "Security alert: new sign-in to j.doe@ from Chrome on Windows in Lagos, a device and country never seen on this account. The user is in Toronto.",
+      "expected": {
+        "key": true,
+        "not_key": false,
+        "s2": true,
+        "s3": true
+      },
+      "pair": "test-as-p1",
+      "trap": false
+    },
+    {
+      "id": "test-as-02",
+      "state": "Security alert: new sign-in to j.doe@ from Chrome on Windows in Toronto, the user's usual laptop and city.",
+      "expected": {
+        "key": false,
+        "not_key": true,
+        "s2": false,
+        "s3": false
+      },
+      "pair": "test-as-p1",
+      "trap": false
+    },
+    {
+      "id": "test-as-03",
+      "state": "Mailbox rule created overnight on m.chen@: forward every email containing 'invoice' to an external Gmail address. Ms. Chen says she did not create it.",
+      "expected": {
+        "key": true,
+        "not_key": false,
+        "s2": false,
+        "s3": true
+      },
+      "pair": "test-as-p2",
+      "trap": false
+    },
+    {
+      "id": "test-as-04",
+      "state": "Mailbox rule created on m.chen@: move newsletters to a 'Reading' folder. Ms. Chen confirms she set it up herself on Monday.",
+      "expected": {
+        "key": false,
+        "not_key": true,
+        "s2": false,
+        "s3": false
+      },
+      "pair": "test-as-p2",
+      "trap": false
+    },
+    {
+      "id": "test-as-05",
+      "state": "Login summary for r.patel@: no unrecognized devices, no new locations and no failed attempts this month.",
+      "expected": {
+        "key": false,
+        "not_key": true,
+        "s2": false,
+        "s3": false
+      },
+      "pair": "test-as-p3",
+      "trap": true
+    },
+    {
+      "id": "test-as-06",
+      "state": "Login summary for r.patel@: 214 failed password attempts from unrecognized devices in three countries, followed by one successful sign-in at 03:12.",
+      "expected": {
+        "key": true,
+        "not_key": false,
+        "s2": true,
+        "s3": true
+      },
+      "pair": "test-as-p3",
+      "trap": false
+    }
+  ]
+}

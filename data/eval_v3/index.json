@@ -1,0 +1,53 @@
+{
+  "total_cases": 48,
+  "domains": [
+    {
+      "file": "agent-actions.json",
+      "domain": "agent-actions",
+      "cases": 6,
+      "description": "Plans an AI agent wants to carry out (new phrasing, new statements)."
+    },
+    {
+      "file": "customer-tone.json",
+      "domain": "customer-tone",
+      "cases": 6,
+      "description": "Messages from customers, judged for tone (new phrasing, new statements)."
+    },
+    {
+      "file": "access-requests.json",
+      "domain": "access-requests",
+      "cases": 6,
+      "description": "Requests for access to systems, judged by an IT approver."
+    },
+    {
+      "file": "refund-requests.json",
+      "domain": "refund-requests",
+      "cases": 6,
+      "description": "Refund requests with the shop's policy stated in the text."
+    },
+    {
+      "file": "account-security.json",
+      "domain": "account-security",
+      "cases": 6,
+      "description": "Account security alerts reviewed by an IT administrator."
+    },
+    {
+      "file": "contractor-invoices.json",
+      "domain": "contractor-invoices",
+      "cases": 6,
+      "description": "Invoices from contractors, checked before payment."
+    },
+    {
+      "file": "leave-requests.json",
+      "domain": "leave-requests",
+      "cases": 6,
+      "description": "Employee leave requests reviewed by a manager."
+    },
+    {
+      "file": "landlord-notices.json",
+      "domain": "landlord-notices",
+      "cases": 6,
+      "description": "Notices from a building manager to tenants."
+    }
+  ]
+}

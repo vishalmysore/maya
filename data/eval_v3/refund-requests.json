@@ -1,0 +1,115 @@
+{
+  "domain": "refund-requests",
+  "description": "Refund requests with the shop's policy stated in the text.",
+  "questions": {
+    "key": {
+      "type": "noul",
+      "instructions": "The refund should be issued"
+    },
+    "not_key": {
+      "type": "noul",
+      "instructions": "The refund should not be issued"
+    },
+    "s2": {
+      "type": "noul",
+      "instructions": "The customer has proof of purchase"
+    },
+    "s3": {
+      "type": "noul",
+      "instructions": "The request is within the return window"
+    }
+  },
+  "relations": {
+    "negations": [
+      [
+        "key",
+        "not_key"
+      ]
+    ],
+    "implications": [
+      [
+        "key",
+        "s2"
+      ],
+      [
+        "key",
+        "s3"
+      ]
+    ],
+    "minimal_pairs_flip": "key"
+  },
+  "cases": [
+    {
+      "id": "test-rr-01",
+      "state": "Policy: refunds within 30 days with a receipt. A customer bought headphones 12 days ago, attached the receipt, and says they stopped charging.",
+      "expected": {
+        "key": true,
+        "not_key": false,
+        "s2": true,
+        "s3": true
+      },
+      "pair": "test-rr-p1",
+      "trap": false
+    },
+    {
+      "id": "test-rr-02",
+      "state": "Policy: refunds within 30 days with a receipt. A customer bought headphones 45 days ago, attached the receipt, and says they stopped charging.",
+      "expected": {
+        "key": false,
+        "not_key": true,
+        "s2": true,
+        "s3": false
+      },
+      "pair": "test-rr-p1",
+      "trap": false
+    },
+    {
+      "id": "test-rr-03",
+      "state": "Policy: refunds within 30 days with a receipt. A customer wants money back for a blender bought last week but says they threw the receipt away and has no order number.",
+      "expected": {
+        "key": false,
+        "not_key": true,
+        "s2": false,
+        "s3": true
+      },
+      "pair": "test-rr-p2",
+      "trap": false
+    },
+    {
+      "id": "test-rr-04",
+      "state": "Policy: refunds within 30 days with a receipt. A customer wants money back for a blender bought last week and forwards the e-receipt from their email.",
+      "expected": {
+        "key": true,
+        "not_key": false,
+        "s2": true,
+        "s3": true
+      },
+      "pair": "test-rr-p2",
+      "trap": false
+    },
+    {
+      "id": "test-rr-05",
+      "state": "Policy: refunds within 30 days with a receipt. The customer writes: 'I don't need a refund, just tell me how to clean the filter.' They bought the vacuum 10 days ago, receipt attached.",
+      "expected": {
+        "key": false,
+        "not_key": true,
+        "s2": true,
+        "s3": true
+      },
+      "pair": "test-rr-p3",
+      "trap": true
+    },
+    {
+      "id": "test-rr-06",
+      "state": "Policy: refunds within 30 days with a receipt. The vacuum bought 10 days ago arrived with a cracked filter housing; the customer asks for a refund and attaches the receipt.",
+      "expected": {
+        "key": true,
+        "not_key": false,
+        "s2": true,
+        "s3": true
+      },
+      "pair": "test-rr-p3",
+      "trap": false
+    }
+  ]
+}

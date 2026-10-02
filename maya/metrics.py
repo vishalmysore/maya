@@ -78,6 +78,10 @@ def summarize(items, probs, relations=None):
     }
     if relations is not None:
         out.update(consistency(items, p, relations))
+    trap = np.array([bool(it.get("trap")) for it in items])
+    if trap.any():
+        out["trap_accuracy"] = float((pred[trap] == y[trap]).mean())
+        out["trap_n"] = int(trap.sum())
     return out
 
 

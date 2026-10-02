@@ -1,0 +1,115 @@
+{
+  "domain": "leave-requests",
+  "description": "Employee leave requests reviewed by a manager.",
+  "questions": {
+    "key": {
+      "type": "noul",
+      "instructions": "The leave request can be approved as submitted"
+    },
+    "not_key": {
+      "type": "noul",
+      "instructions": "The leave request cannot be approved as submitted"
+    },
+    "s2": {
+      "type": "noul",
+      "instructions": "The employee has enough leave days left"
+    },
+    "s3": {
+      "type": "noul",
+      "instructions": "The requested dates clash with a critical deadline"
+    }
+  },
+  "relations": {
+    "negations": [
+      [
+        "key",
+        "not_key"
+      ]
+    ],
+    "implications": [
+      [
+        "key",
+        "s2"
+      ],
+      [
+        "s3",
+        "not_key"
+      ]
+    ],
+    "minimal_pairs_flip": "key"
+  },
+  "cases": [
+    {
+      "id": "test-lr-01",
+      "state": "Sam asks for 3 days off next week. Sam has 12 vacation days left and the team has no deadlines that week.",
+      "expected": {
+        "key": true,
+        "not_key": false,
+        "s2": true,
+        "s3": false
+      },
+      "pair": "test-lr-p1",
+      "trap": false
+    },
+    {
+      "id": "test-lr-02",
+      "state": "Sam asks for 3 days off next week. Sam has 1 vacation day left and the team has no deadlines that week.",
+      "expected": {
+        "key": false,
+        "not_key": true,
+        "s2": false,
+        "s3": false
+      },
+      "pair": "test-lr-p1",
+      "trap": false
+    },
+    {
+      "id": "test-lr-03",
+      "state": "Ines requests leave on 28-30 June. The annual audit she leads is due on 29 June, and she has 15 days left.",
+      "expected": {
+        "key": false,
+        "not_key": true,
+        "s2": true,
+        "s3": true
+      },
+      "pair": "test-lr-p2",
+      "trap": false
+    },
+    {
+      "id": "test-lr-04",
+      "state": "Ines requests leave on 6-8 July, after the annual audit she leads (due 29 June). She has 15 days left.",
+      "expected": {
+        "key": true,
+        "not_key": false,
+        "s2": true,
+        "s3": false
+      },
+      "pair": "test-lr-p2",
+      "trap": false
+    },
+    {
+      "id": "test-lr-05",
+      "state": "Omar asks for Friday off. He has 8 days left, there is no clash with any deadline, and his manager says there is no reason to refuse.",
+      "expected": {
+        "key": true,
+        "not_key": false,
+        "s2": true,
+        "s3": false
+      },
+      "pair": "test-lr-p3",
+      "trap": true
+    },
+    {
+      "id": "test-lr-06",
+      "state": "Omar asks for Friday off. He has 8 days left, but Friday is the product launch he is responsible for.",
+      "expected": {
+        "key": false,
+        "not_key": true,
+        "s2": true,
+        "s3": true
+      },
+      "pair": "test-lr-p3",
+      "trap": false
+    }
+  ]
+}

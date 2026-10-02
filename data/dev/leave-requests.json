@@ -1,0 +1,67 @@
+{
+  "domain": "leave-requests",
+  "description": "Employee leave requests reviewed by a manager.",
+  "questions": {
+    "key": {
+      "type": "noul",
+      "instructions": "The leave request can be approved as submitted"
+    },
+    "not_key": {
+      "type": "noul",
+      "instructions": "The leave request cannot be approved as submitted"
+    },
+    "s2": {
+      "type": "noul",
+      "instructions": "The employee has enough leave days left"
+    },
+    "s3": {
+      "type": "noul",
+      "instructions": "The requested dates clash with a critical deadline"
+    }
+  },
+  "relations": {
+    "negations": [
+      [
+        "key",
+        "not_key"
+      ]
+    ],
+    "implications": [
+      [
+        "key",
+        "s2"
+      ],
+      [
+        "s3",
+        "not_key"
+      ]
+    ],
+    "minimal_pairs_flip": "key"
+  },
+  "cases": [
+    {
+      "id": "dev-lr-01",
+      "state": "Lea asks for two days off; she has 20 days left and her project is between phases.",
+      "expected": {
+        "key": true,
+        "not_key": false,
+        "s2": true,
+        "s3": false
+      },
+      "pair": "dev-lr-p1",
+      "trap": false
+    },
+    {
+      "id": "dev-lr-02",
+      "state": "Lea asks for two days off; she has 20 days left, but the days fall on the client go-live she is running.",
+      "expected": {
+        "key": false,
+        "not_key": true,
+        "s2": true,
+        "s3": true
+      },
+      "pair": "dev-lr-p1",
+      "trap": false
+    }
+  ]
+}

@@ -1,0 +1,115 @@
+{
+  "domain": "contractor-invoices",
+  "description": "Invoices from contractors, checked before payment.",
+  "questions": {
+    "key": {
+      "type": "noul",
+      "instructions": "This invoice can be paid now"
+    },
+    "not_key": {
+      "type": "noul",
+      "instructions": "This invoice should be held for now"
+    },
+    "s2": {
+      "type": "noul",
+      "instructions": "The amount matches what was agreed"
+    },
+    "s3": {
+      "type": "noul",
+      "instructions": "The work is finished"
+    }
+  },
+  "relations": {
+    "negations": [
+      [
+        "key",
+        "not_key"
+      ]
+    ],
+    "implications": [
+      [
+        "key",
+        "s2"
+      ],
+      [
+        "key",
+        "s3"
+      ]
+    ],
+    "minimal_pairs_flip": "key"
+  },
+  "cases": [
+    {
+      "id": "test-ci-01",
+      "state": "Invoice from Lumen Painters: $4,200 for repainting the lobby, as quoted. Facilities confirmed the job was completed and inspected on Friday.",
+      "expected": {
+        "key": true,
+        "not_key": false,
+        "s2": true,
+        "s3": true
+      },
+      "pair": "test-ci-p1",
+      "trap": false
+    },
+    {
+      "id": "test-ci-02",
+      "state": "Invoice from Lumen Painters: $6,900 for repainting the lobby, which was quoted at $4,200. Facilities confirmed the job was completed on Friday.",
+      "expected": {
+        "key": false,
+        "not_key": true,
+        "s2": false,
+        "s3": true
+      },
+      "pair": "test-ci-p1",
+      "trap": false
+    },
+    {
+      "id": "test-ci-03",
+      "state": "Invoice from DataNest: $1,500 for the March server migration, as agreed. The migration is scheduled for next week.",
+      "expected": {
+        "key": false,
+        "not_key": true,
+        "s2": true,
+        "s3": false
+      },
+      "pair": "test-ci-p2",
+      "trap": false
+    },
+    {
+      "id": "test-ci-04",
+      "state": "Invoice from DataNest: $1,500 for the February server migration, as agreed. The migration finished on 20 February and IT signed it off.",
+      "expected": {
+        "key": true,
+        "not_key": false,
+        "s2": true,
+        "s3": true
+      },
+      "pair": "test-ci-p2",
+      "trap": false
+    },
+    {
+      "id": "test-ci-05",
+      "state": "Invoice from Brightline Electrical: $780, as quoted. The note says 'work complete', but site manager Ana reports the wiring is not finished and failed inspection.",
+      "expected": {
+        "key": false,
+        "not_key": true,
+        "s2": true,
+        "s3": false
+      },
+      "pair": "test-ci-p3",
+      "trap": true
+    },
+    {
+      "id": "test-ci-06",
+      "state": "Invoice from Brightline Electrical: $780, as quoted. Site manager Ana reports the wiring is finished and passed inspection yesterday.",
+      "expected": {
+        "key": true,
+        "not_key": false,
+        "s2": true,
+        "s3": true
+      },
+      "pair": "test-ci-p3",
+      "trap": false
+    }
+  ]
+}

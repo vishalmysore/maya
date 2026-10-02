@@ -1,0 +1,63 @@
+{
+  "domain": "access-requests",
+  "description": "Requests for access to systems, judged by an IT approver.",
+  "questions": {
+    "key": {
+      "type": "noul",
+      "instructions": "This request can be approved without further checks"
+    },
+    "not_key": {
+      "type": "noul",
+      "instructions": "This request needs further checks before it is approved"
+    },
+    "s2": {
+      "type": "noul",
+      "instructions": "The request is for administrator-level access"
+    },
+    "s3": {
+      "type": "noul",
+      "instructions": "The request is for a production system"
+    }
+  },
+  "relations": {
+    "negations": [
+      [
+        "key",
+        "not_key"
+      ]
+    ],
+    "implications": [
+      [
+        "s2",
+        "not_key"
+      ]
+    ],
+    "minimal_pairs_flip": "key"
+  },
+  "cases": [
+    {
+      "id": "dev-ar-01",
+      "state": "A sales intern asks for access to the shared marketing slides folder; their team lead approved it.",
+      "expected": {
+        "key": true,
+        "not_key": false,
+        "s2": false,
+        "s3": false
+      },
+      "pair": "dev-ar-p1",
+      "trap": false
+    },
+    {
+      "id": "dev-ar-02",
+      "state": "A sales intern asks for access to the production customer database export; nobody has approved it.",
+      "expected": {
+        "key": false,
+        "not_key": true,
+        "s2": false,
+        "s3": true
+      },
+      "pair": "dev-ar-p1",
+      "trap": false
+    }
+  ]
+}

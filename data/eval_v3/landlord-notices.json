@@ -1,0 +1,111 @@
+{
+  "domain": "landlord-notices",
+  "description": "Notices from a building manager to tenants.",
+  "questions": {
+    "key": {
+      "type": "noul",
+      "instructions": "The tenant needs to be at home for this"
+    },
+    "not_key": {
+      "type": "noul",
+      "instructions": "The tenant does not need to be at home for this"
+    },
+    "s2": {
+      "type": "noul",
+      "instructions": "Someone will enter the apartment"
+    },
+    "s3": {
+      "type": "noul",
+      "instructions": "The notice is about a safety check"
+    }
+  },
+  "relations": {
+    "negations": [
+      [
+        "key",
+        "not_key"
+      ]
+    ],
+    "implications": [
+      [
+        "key",
+        "s2"
+      ]
+    ],
+    "minimal_pairs_flip": "key"
+  },
+  "cases": [
+    {
+      "id": "test-ln-01",
+      "state": "The gas safety inspection is on Tuesday between 9 and 12. The engineer must be let in by the tenant; we do not hold a key.",
+      "expected": {
+        "key": true,
+        "not_key": false,
+        "s2": true,
+        "s3": true
+      },
+      "pair": "test-ln-p1",
+      "trap": false
+    },
+    {
+      "id": "test-ln-02",
+      "state": "The gas safety inspection is on Tuesday between 9 and 12. You don't need to be in: the engineer will use the management key and leave a report.",
+      "expected": {
+        "key": false,
+        "not_key": true,
+        "s2": true,
+        "s3": true
+      },
+      "pair": "test-ln-p1",
+      "trap": false
+    },
+    {
+      "id": "test-ln-03",
+      "state": "Window cleaners will do the outside of the building on Thursday. They work from a lift and never enter apartments.",
+      "expected": {
+        "key": false,
+        "not_key": true,
+        "s2": false,
+        "s3": false
+      },
+      "pair": "test-ln-p2",
+      "trap": false
+    },
+    {
+      "id": "test-ln-04",
+      "state": "Window cleaners will do the inside and outside of every window on Thursday. Please be home to let them in; they cannot use our key.",
+      "expected": {
+        "key": true,
+        "not_key": false,
+        "s2": true,
+        "s3": false
+      },
+      "pair": "test-ln-p2",
+      "trap": false
+    },
+    {
+      "id": "test-ln-05",
+      "state": "Smoke alarm testing next Monday. No need to stay home and no action required: staff will let themselves in with the master key.",
+      "expected": {
+        "key": false,
+        "not_key": true,
+        "s2": true,
+        "s3": true
+      },
+      "pair": "test-ln-p3",
+      "trap": true
+    },
+    {
+      "id": "test-ln-06",
+      "state": "Smoke alarm testing next Monday. Staff cannot use a master key this time, so please make sure you are at home between 10 and 2.",
+      "expected": {
+        "key": true,
+        "not_key": false,
+        "s2": true,
+        "s3": true
+      },
+      "pair": "test-ln-p3",
+      "trap": false
+    }
+  ]
+}

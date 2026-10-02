@@ -1,0 +1,63 @@
+{
+  "domain": "customer-tone",
+  "description": "Messages from customers, judged for tone (new phrasing, new statements).",
+  "questions": {
+    "key": {
+      "type": "noul",
+      "instructions": "The writer is annoyed or angry"
+    },
+    "not_key": {
+      "type": "noul",
+      "instructions": "The writer is not annoyed"
+    },
+    "s2": {
+      "type": "noul",
+      "instructions": "The writer threatens to cancel, leave or escalate"
+    },
+    "s3": {
+      "type": "noul",
+      "instructions": "The writer reports a problem"
+    }
+  },
+  "relations": {
+    "negations": [
+      [
+        "key",
+        "not_key"
+      ]
+    ],
+    "implications": [
+      [
+        "s2",
+        "key"
+      ]
+    ],
+    "minimal_pairs_flip": "key"
+  },
+  "cases": [
+    {
+      "id": "dev-ct-01",
+      "state": "Loving the new dashboard! One small thing: the export button is a bit hidden.",
+      "expected": {
+        "key": false,
+        "not_key": true,
+        "s2": false,
+        "s3": true
+      },
+      "pair": "dev-ct-p1",
+      "trap": false
+    },
+    {
+      "id": "dev-ct-02",
+      "state": "The new dashboard hides the export button and I've wasted an hour looking for it. Ridiculous.",
+      "expected": {
+        "key": true,
+        "not_key": false,
+        "s2": false,
+        "s3": true
+      },
+      "pair": "dev-ct-p1",
+      "trap": false
+    }
+  ]
+}

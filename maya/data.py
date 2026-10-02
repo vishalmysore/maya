@@ -10,7 +10,9 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 EVAL_DIR = ROOT / "data" / "eval"
 EVAL_V2_DIR = ROOT / "data" / "eval_v2"
-EVAL_SETS = {"v1": EVAL_DIR, "v2": EVAL_V2_DIR}
+EVAL_V3_DIR = ROOT / "data" / "eval_v3"   # judgment-heavy test set, written before the v0.2 training data
+DEV_DIR = ROOT / "data" / "dev"           # small dev set: model selection and calibration only
+EVAL_SETS = {"v1": EVAL_DIR, "v2": EVAL_V2_DIR, "v3": EVAL_V3_DIR}
 
 # v1 files predate `relations`; its one natural negation pair is listed here.
 V1_RELATIONS = {"agent-guardrails": {"negations": [["needs_human", "safe_without_approval"]]}}
@@ -49,6 +51,7 @@ def load_yes_no_items(eval_dir=EVAL_DIR):
                     "text": state_text(case["state"]),
                     "label": bool(label),
                     "pair": case.get("pair"),
+                    "trap": bool(case.get("trap")),
                 })
     return items
 
