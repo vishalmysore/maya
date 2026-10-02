@@ -3,6 +3,7 @@
 **A dedicated yes/no gate.** Maya reads a text and a statement (or a yes/no question) and returns P(yes). It is a 150M-parameter cross-encoder fine-tuned from [ModernBERT-base-zeroshot-v2.0](https://huggingface.co/MoritzLaurer/ModernBERT-base-zeroshot-v2.0) on rule-labeled data where every fact appears in plain and negated wordings, meant to sit in front of heavier models as a guardrail or early-exit filter: "does this action need a human?", "is the customer upset?", "is this message a scam?".
 
 - Weights: [huggingface.co/VishalMysore/maya](https://huggingface.co/VishalMysore/maya) (PyTorch) and [huggingface.co/VishalMysore/mayaWasm](https://huggingface.co/VishalMysore/mayaWasm) (int8 ONNX for the browser, 161 MB)
+- **Live demo (runs in your browser): https://vishalmysore.github.io/maya/**
 - Article: [docs/article.md](docs/article.md) (how it was built, results, failures, with screenshots)
 - Compared against [laya-typed-decisions](https://huggingface.co/convaiinnovations/laya-typed-decisions), [layaMOE](https://github.com/vishalmysore/layaMOE) and off-the-shelf zero-shot NLI models
 
@@ -111,7 +112,7 @@ Maya is a cross-encoder: every (text, question) pair is one more sequence throug
 
 ## Browser demo
 
-`web/` is a single page that runs the int8 build with ONNX Runtime Web (WASM, multi-threaded when cross-origin isolated), loading the model from Hugging Face (VishalMysore/mayaWasm) and caching the weight parts in the browser:
+Live at https://vishalmysore.github.io/maya/ (deployed by `.github/workflows/pages.yml` on every push to `web/`). `web/` is a single page that runs the int8 build with ONNX Runtime Web (WASM, multi-threaded when cross-origin isolated), loading the model from Hugging Face (VishalMysore/mayaWasm) and caching the weight parts in the browser:
 
 ```
 npm install

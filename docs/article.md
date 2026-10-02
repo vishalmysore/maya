@@ -18,6 +18,7 @@ image: images/chart-accuracy.png
 
 This article covers how we built it, what the numbers say, and where Maya fails.
 
+- **Try it in your browser: [vishalmysore.github.io/maya](https://vishalmysore.github.io/maya/)**
 - Code, data and every result: [github.com/vishalmysore/maya](https://github.com/vishalmysore/maya)
 - Model weights: [huggingface.co/VishalMysore/maya](https://huggingface.co/VishalMysore/maya)
 - Browser build: [huggingface.co/VishalMysore/mayaWasm](https://huggingface.co/VishalMysore/mayaWasm)
@@ -201,7 +202,7 @@ So Maya ships with strict yes/no as the default. If you want a bounded-error "no
 
 ![The Maya demo after loading: WASM with 4 threads, int8 155 MB, temperature 2.8](images/demo-model-loaded.png)
 
-**The demo page:**
+**The demo page** ([try it live](https://vishalmysore.github.io/maya/)):
 - Uses **ONNX Runtime Web** (WebAssembly, multi-threaded when the page is cross-origin isolated) and the Hugging Face `tokenizers` JavaScript library.
 - Everything runs on your device: no text leaves the browser.
 - On a laptop, four questions about one text take about 0.3-0.4 s in a single batch.
@@ -261,7 +262,7 @@ Maya is a 150M-parameter yes/no classifier fine-tuned from ModernBERT-base-zeros
 No. It is a classifier with one probability output, so every answer is yes or no. A third answer, "not sure", appears only if you set abstention thresholds.
 
 **Does Maya run without a server?**
-Yes. The int8 ONNX build (161 MB) runs in the browser with ONNX Runtime Web and WebAssembly, and no text leaves the device. It also runs in Python with PyTorch on a CPU.
+Yes, try the [live demo](https://vishalmysore.github.io/maya/). The int8 ONNX build (161 MB) runs in the browser with ONNX Runtime Web and WebAssembly, and no text leaves the device. It also runs in Python with PyTorch on a CPU.
 
 **Is Maya better than Laya?**
 On familiar domains, yes: 78.3% against 68.3% accuracy, and AUROC 0.905 against 0.792, at about a third of the size. On unseen domains the two are level, at 81.2% and 80.1%. Maya contradicts itself far less often than Laya.
