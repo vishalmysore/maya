@@ -6,3 +6,5 @@ build/
 *.pt
 logs/
 data/train/
+node_modules/
+dist/

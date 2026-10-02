@@ -3,6 +3,7 @@
 **A dedicated yes/no gate.** Maya reads a text and a statement (or a yes/no question) and returns P(yes). It is a 150M-parameter cross-encoder fine-tuned from [ModernBERT-base-zeroshot-v2.0](https://huggingface.co/MoritzLaurer/ModernBERT-base-zeroshot-v2.0) on rule-labeled data where every fact appears in plain and negated wordings, meant to sit in front of heavier models as a guardrail or early-exit filter: "does this action need a human?", "is the customer upset?", "is this message a scam?".
 
 - Weights: [huggingface.co/VishalMysore/maya](https://huggingface.co/VishalMysore/maya) (PyTorch) and [huggingface.co/VishalMysore/mayaWasm](https://huggingface.co/VishalMysore/mayaWasm) (int8 ONNX for the browser, 161 MB)
+- Article: [docs/article.md](docs/article.md) (how it was built, results, failures, with screenshots)
 - Compared against [laya-typed-decisions](https://huggingface.co/convaiinnovations/laya-typed-decisions), [layaMOE](https://github.com/vishalmysore/layaMOE) and off-the-shelf zero-shot NLI models
 
 **It only ever answers yes or no.** Maya is a classifier with one output, P(yes); it cannot produce free text. An optional third answer, "not sure", appears only if you set abstention thresholds (see below). It also cannot refuse: a question that is not yes/no ("what colour is it?") still gets a probability, so only ask yes/no questions.
@@ -108,6 +109,29 @@ Maya is a cross-encoder: every (text, question) pair is one more sequence throug
 
 `scripts/export_onnx.py` exports the model as one ONNX graph with int8 weight-only quantization (MatMulNBits block 128, int8 embeddings): 161 MB, weights split into 24 MiB parts with SHA-256 hashes. On all 256 v2 answers the int8 graph scores 81.6% (PyTorch 81.25%), with one answer flipping and a largest probability change of 0.12.
 
+## Browser demo
+
+`web/` is a single page that runs the int8 build with ONNX Runtime Web (WASM, multi-threaded when cross-origin isolated), loading the model from Hugging Face (VishalMysore/mayaWasm) and caching the weight parts in the browser:
+
+```
+npm install
+node scripts/prepare_site.mjs                          # dist/, model from Hugging Face
+node scripts/prepare_site.mjs --local-model build/web  # or bundle a local build
+python serve.py 8791                                   # http://localhost:8791 with COOP/COEP headers
+```
+
+On 28 eval items the browser's JavaScript tokenizer gives exactly the Python token ids and the in-browser probabilities differ from PyTorch by at most 0.027 (`results/browser_parity.json`). `scripts/screenshots.py` (Playwright, headless Edge) re-runs that check and captures the screenshots in `docs/images/`.
+
+![Maya demo answering questions about a support ticket](docs/images/demo-full-page.png)
+
+## Tests
+
+```
+pytest            # 25 tests, about 15 s with the model on disk
+```
+
+Eval-set integrity (negation, implication and minimal-pair labels), metrics, the abstention guarantee on simulated data, generator rules and leakage, and the model itself: answers are only yes / no / not sure, batched equals single, the model reproduces the recorded eval probabilities, int8 ONNX matches PyTorch.
+
 ## How it was trained
 
 `scripts/gen_train_data.py` builds 4,463 rule-labeled texts with 20,429 yes/no statements (50% yes, about a third phrased as questions):
@@ -155,6 +179,9 @@ Load models in float32 on CPU: transformers 5 keeps these checkpoints in bfloat1
 | `scripts/` | data generation, training, evaluation, latency, ONNX export, Hugging Face upload |
 | `data/eval/`, `data/eval_v2/` | hand-labeled test sets (v1 from layaForWeb, v2 written for Maya) |
 | `results/` | every probability and summary behind the tables above |
+| `web/`, `scripts/prepare_site.mjs`, `serve.py` | the browser demo |
+| `tests/` | pytest suite |
+| `docs/` | article and screenshots (`scripts/screenshots.py`, `scripts/make_charts.py`) |
 | `hf/` | model cards for the two Hugging Face repos |
 
 Not in git: `checkpoints/`, `build/` (on Hugging Face), `data/train/` (regenerate with `scripts/gen_train_data.py`).

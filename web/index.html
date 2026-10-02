@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Maya: yes/no gate in your browser</title>
+<meta name="description" content="Maya is a 150M-parameter yes/no gate that runs fully in the browser with ONNX Runtime Web. Ask yes/no questions about any text and get P(yes), with an optional 'not sure' band.">
+<style>
+  :root { --bg: #f7f7f5; --card: #ffffff; --ink: #1d1d1b; --muted: #6b6b66; --line: #e3e2dd;
+          --yes: #1f7a4d; --no: #b03a2e; --unsure: #a66a00; --accent: #2f5bd3; --track: #ecebe6; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #161615; --card: #1f1f1d; --ink: #ecebe6; --muted: #a3a29b; --line: #34332f;
+            --yes: #4cc38a; --no: #ef7a6d; --unsure: #f0b44c; --accent: #7d9cf0; --track: #2c2b28; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width: 980px; margin: 0 auto; padding: 24px 16px 48px; }
+  h1 { font-size: 26px; margin: 0 0 4px; }
+  .sub { color: var(--muted); margin: 0 0 20px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 18px; margin-bottom: 16px; }
+  label { display: block; font-weight: 600; margin: 10px 0 6px; }
+  textarea, select { width: 100%; font: inherit; color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; }
+  textarea { resize: vertical; }
+  button { font: inherit; font-weight: 600; border: 0; border-radius: 8px; padding: 9px 16px; background: var(--accent); color: #fff; cursor: pointer; }
+  button:disabled { opacity: .5; cursor: default; }
+  button.ghost { background: transparent; color: var(--accent); border: 1px solid var(--line); }
+  .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  #status { color: var(--muted); min-height: 1.5em; }
+  #status.warn { color: var(--no); }
+  progress { width: 100%; height: 8px; }
+  .badges span { display: inline-block; font-size: 12px; border: 1px solid var(--line); border-radius: 99px; padding: 2px 10px; margin: 6px 6px 0 0; color: var(--muted); }
+  .res { display: grid; grid-template-columns: 1fr 210px 64px 80px; gap: 10px; align-items: center; padding: 8px 0; border-top: 1px solid var(--line); }
+  .res:first-child { border-top: 0; }
+  .track { height: 10px; background: var(--track); border-radius: 99px; overflow: hidden; }
+  .fill { height: 100%; background: var(--accent); }
+  .ans { font-weight: 700; text-align: center; border-radius: 99px; padding: 2px 0; font-size: 13px; }
+  .ans.yes { color: var(--yes); border: 1px solid var(--yes); }
+  .ans.no { color: var(--no); border: 1px solid var(--no); }
+  .ans.unsure { color: var(--unsure); border: 1px solid var(--unsure); }
+  .pv { font-variant-numeric: tabular-nums; text-align: right; color: var(--muted); }
+  .band { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .band input { width: 100%; }
+  .meta { color: var(--muted); font-size: 13px; margin-top: 8px; }
+  .note { font-size: 13px; color: var(--muted); }
+  a { color: var(--accent); }
+  @media (max-width: 640px) { .res { grid-template-columns: 1fr 70px 64px; } .res .track { display: none; } .band { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<main>
+  <h1>Maya: a yes/no gate in your browser</h1>
+  <p class="sub">A 150M-parameter model that reads a text and answers yes/no questions about it, fully on your device (ONNX Runtime Web, int8, about 160 MB downloaded once). Every answer is <b>yes</b>, <b>no</b> or, if you set a band, <b>not sure</b>. <a href="https://github.com/vishalmysore/maya">Code and results</a>.</p>
+
+  <section class="card" id="loadCard">
+    <div class="row"><button id="loadBtn">Load Maya</button><span id="status">Not loaded.</span></div>
+    <progress id="progress" max="1" value="0" hidden></progress>
+    <div class="badges" id="badges"></div>
+  </section>
+
+  <section class="card" id="askCard">
+    <label for="preset">Example</label>
+    <select id="preset"></select>
+    <label for="text">Text</label>
+    <textarea id="text" rows="4"></textarea>
+    <label for="statements">Yes/no questions or statements, one per line</label>
+    <textarea id="statements" rows="5"></textarea>
+    <div class="band">
+      <div><label for="tNo">Say "no" when P(yes) &le; <span id="tNoVal">0.50</span></label><input id="tNo" type="range" min="0" max="0.5" step="0.01" value="0.5"></div>
+      <div><label for="tYes">Say "yes" when P(yes) &ge; <span id="tYesVal">0.50</span></label><input id="tYes" type="range" min="0.5" max="1" step="0.01" value="0.5"></div>
+    </div>
+    <p class="note">Both at 0.50 = strict yes/no. Widen the gap to get "not sure" in between. Thresholds with a guaranteed error rate have to be fitted on labeled examples of your own inputs (see the README).</p>
+    <div class="row"><button id="runBtn" disabled>Ask</button></div>
+  </section>
+
+  <section class="card" id="resultCard" hidden>
+    <div id="results"></div>
+    <div class="meta" id="meta"></div>
+  </section>
+
+  <p class="note">Maya v0.1 is strongest on the kinds of text it was trained on (agent plans, moderation, support tickets, deliveries, email, IT incidents, reviews, expenses, meetings, code changes, insurance and sales). On unseen domains it is level with Laya, and it can be fooled by word overlap, so do not use it as the only safety check. Apache-2.0, unofficial experiment.</p>
+</main>
+<script type="module" src="./app.js"></script>
+</body>
+</html>
