@@ -1,0 +1,53 @@
+{
+  "total_cases": 64,
+  "domains": [
+    {
+      "file": "rental-listings.json",
+      "domain": "rental-listings",
+      "cases": 8,
+      "description": "Apartment and house rental listings."
+    },
+    {
+      "file": "travel-notices.json",
+      "domain": "travel-notices",
+      "cases": 8,
+      "description": "Airline, rail and hotel notifications sent to travelers."
+    },
+    {
+      "file": "school-messages.json",
+      "domain": "school-messages",
+      "cases": 8,
+      "description": "Messages from a school to parents."
+    },
+    {
+      "file": "contract-clauses.json",
+      "domain": "contract-clauses",
+      "cases": 8,
+      "description": "Termination and payment clauses from contracts and leases."
+    },
+    {
+      "file": "scam-messages.json",
+      "domain": "scam-messages",
+      "cases": 8,
+      "description": "Text messages and chat messages, some of them scams."
+    },
+    {
+      "file": "smart-home.json",
+      "domain": "smart-home",
+      "cases": 8,
+      "description": "Voice commands given to a smart-home assistant."
+    },
+    {
+      "file": "recipes.json",
+      "domain": "recipes",
+      "cases": 8,
+      "description": "Short recipe and menu descriptions."
+    },
+    {
+      "file": "job-postings.json",
+      "domain": "job-postings",
+      "cases": 8,
+      "description": "Job advertisements."
+    }
+  ]
+}

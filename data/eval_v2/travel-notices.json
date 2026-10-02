@@ -1,0 +1,127 @@
+{
+  "domain": "travel-notices",
+  "description": "Airline, rail and hotel notifications sent to travelers.",
+  "questions": {
+    "key": {
+      "type": "noul",
+      "instructions": "The traveler needs to take action"
+    },
+    "not_key": {
+      "type": "noul",
+      "instructions": "The traveler does not need to do anything"
+    },
+    "s2": {
+      "type": "noul",
+      "instructions": "The flight has been cancelled"
+    },
+    "s3": {
+      "type": "noul",
+      "instructions": "The trip has been disrupted"
+    }
+  },
+  "relations": {
+    "negations": [
+      [
+        "key",
+        "not_key"
+      ]
+    ],
+    "implications": [
+      [
+        "s2",
+        "s3"
+      ]
+    ],
+    "minimal_pairs_flip": "key"
+  },
+  "cases": [
+    {
+      "id": "tn-01",
+      "state": "Your flight BA 284 to San Francisco on 14 March has been cancelled. Please choose a new flight or request a refund in the app within 72 hours.",
+      "expected": {
+        "key": true,
+        "not_key": false,
+        "s2": true,
+        "s3": true
+      },
+      "pair": "tn-p1"
+    },
+    {
+      "id": "tn-02",
+      "state": "Your flight BA 284 to San Francisco on 14 March has been cancelled. We have automatically rebooked you on BA 286 departing two hours later; your seat and bags carry over and no action is required.",
+      "expected": {
+        "key": false,
+        "not_key": true,
+        "s2": true,
+        "s3": true
+      },
+      "pair": "tn-p1"
+    },
+    {
+      "id": "tn-03",
+      "state": "Reminder: your flight to Lisbon departs tomorrow at 09:40. You must check in online before arriving at the airport.",
+      "expected": {
+        "key": true,
+        "not_key": false,
+        "s2": false,
+        "s3": false
+      },
+      "pair": "tn-p2"
+    },
+    {
+      "id": "tn-04",
+      "state": "Reminder: your flight to Lisbon departs tomorrow at 09:40 as scheduled. You are already checked in and your boarding pass is attached.",
+      "expected": {
+        "key": false,
+        "not_key": true,
+        "s2": false,
+        "s3": false
+      },
+      "pair": "tn-p2"
+    },
+    {
+      "id": "tn-05",
+      "state": "Hotel notice: due to a burst pipe your room at the Harbor Inn is unavailable on 3-5 May. Reply to this email to choose between a refund or a room at our sister hotel.",
+      "expected": {
+        "key": true,
+        "not_key": false,
+        "s2": false,
+        "s3": true
+      },
+      "pair": "tn-p3"
+    },
+    {
+      "id": "tn-06",
+      "state": "Hotel notice: due to a burst pipe your room at the Harbor Inn is unavailable on 3-5 May. We have moved your booking to our sister hotel next door at no extra cost; nothing else is needed from you.",
+      "expected": {
+        "key": false,
+        "not_key": true,
+        "s2": false,
+        "s3": true
+      },
+      "pair": "tn-p3"
+    },
+    {
+      "id": "tn-07",
+      "state": "Your train to Edinburgh is delayed by 40 minutes. Your connecting bus will not wait, so please book a later bus using the link below.",
+      "expected": {
+        "key": true,
+        "not_key": false,
+        "s2": false,
+        "s3": true
+      },
+      "pair": "tn-p4"
+    },
+    {
+      "id": "tn-08",
+      "state": "Your train to Edinburgh is delayed by 40 minutes. Your connecting bus has been told and will wait for you.",
+      "expected": {
+        "key": false,
+        "not_key": true,
+        "s2": false,
+        "s3": true
+      },
+      "pair": "tn-p4"
+    }
+  ]
+}

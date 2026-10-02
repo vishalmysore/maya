@@ -1,0 +1,127 @@
+{
+  "domain": "contract-clauses",
+  "description": "Termination and payment clauses from contracts and leases.",
+  "questions": {
+    "key": {
+      "type": "noul",
+      "instructions": "Either party may end the agreement early"
+    },
+    "not_key": {
+      "type": "noul",
+      "instructions": "Neither party can end the agreement before its term is over"
+    },
+    "s2": {
+      "type": "noul",
+      "instructions": "A party may have to pay a penalty"
+    },
+    "s3": {
+      "type": "noul",
+      "instructions": "The clause involves a payment of money"
+    }
+  },
+  "relations": {
+    "negations": [
+      [
+        "key",
+        "not_key"
+      ]
+    ],
+    "implications": [
+      [
+        "s2",
+        "s3"
+      ]
+    ],
+    "minimal_pairs_flip": "key"
+  },
+  "cases": [
+    {
+      "id": "cc-01",
+      "state": "Either party may terminate this Agreement for convenience on 30 days' written notice.",
+      "expected": {
+        "key": true,
+        "not_key": false,
+        "s2": false,
+        "s3": false
+      },
+      "pair": "cc-p1"
+    },
+    {
+      "id": "cc-02",
+      "state": "This Agreement may not be terminated by either party before the end of the Initial Term.",
+      "expected": {
+        "key": false,
+        "not_key": true,
+        "s2": false,
+        "s3": false
+      },
+      "pair": "cc-p1"
+    },
+    {
+      "id": "cc-03",
+      "state": "Either party may terminate this Agreement early on 60 days' notice, provided the terminating party pays an early termination penalty equal to two months of fees.",
+      "expected": {
+        "key": true,
+        "not_key": false,
+        "s2": true,
+        "s3": true
+      },
+      "pair": "cc-p2"
+    },
+    {
+      "id": "cc-04",
+      "state": "Neither party may terminate this Agreement before the end of the term. Fees for the full term are payable in advance.",
+      "expected": {
+        "key": false,
+        "not_key": true,
+        "s2": false,
+        "s3": true
+      },
+      "pair": "cc-p2"
+    },
+    {
+      "id": "cc-05",
+      "state": "Each party may end this lease before the end of the term by giving the other party three months' written notice.",
+      "expected": {
+        "key": true,
+        "not_key": false,
+        "s2": false,
+        "s3": false
+      },
+      "pair": "cc-p3"
+    },
+    {
+      "id": "cc-06",
+      "state": "This lease runs for a fixed term of 12 months and cannot be ended early by the landlord or the tenant.",
+      "expected": {
+        "key": false,
+        "not_key": true,
+        "s2": false,
+        "s3": false
+      },
+      "pair": "cc-p3"
+    },
+    {
+      "id": "cc-07",
+      "state": "A late-payment penalty of $500 applies to any invoice paid after 30 days. Either party may terminate this Agreement at any time on 14 days' notice.",
+      "expected": {
+        "key": true,
+        "not_key": false,
+        "s2": true,
+        "s3": true
+      },
+      "pair": "cc-p4"
+    },
+    {
+      "id": "cc-08",
+      "state": "A late-payment penalty of $500 applies to any invoice paid after 30 days. The Agreement remains in force for its full term and neither party may terminate it early.",
+      "expected": {
+        "key": false,
+        "not_key": true,
+        "s2": true,
+        "s3": true
+      },
+      "pair": "cc-p4"
+    }
+  ]
+}

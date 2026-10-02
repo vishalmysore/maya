@@ -9,3 +9,7 @@ protobuf
 numpy==2.5.3
 scikit-learn
 huggingface_hub==1.33.0
+datasets
+onnx==1.23.0
+onnxscript==0.7.2
+onnxruntime==1.25.0

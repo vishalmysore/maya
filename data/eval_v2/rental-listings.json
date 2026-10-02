@@ -1,0 +1,127 @@
+{
+  "domain": "rental-listings",
+  "description": "Apartment and house rental listings.",
+  "questions": {
+    "key": {
+      "type": "noul",
+      "instructions": "Pets are allowed in this apartment"
+    },
+    "not_key": {
+      "type": "noul",
+      "instructions": "Pets are not allowed in this apartment"
+    },
+    "s2": {
+      "type": "noul",
+      "instructions": "Dogs are allowed"
+    },
+    "s3": {
+      "type": "noul",
+      "instructions": "Utilities are included in the rent"
+    }
+  },
+  "relations": {
+    "negations": [
+      [
+        "key",
+        "not_key"
+      ]
+    ],
+    "implications": [
+      [
+        "s2",
+        "key"
+      ]
+    ],
+    "minimal_pairs_flip": "key"
+  },
+  "cases": [
+    {
+      "id": "rl-01",
+      "state": "Two-bedroom flat near the park, $1,850/month. All utilities included. Cats and dogs welcome, one-time pet deposit $300.",
+      "expected": {
+        "key": true,
+        "not_key": false,
+        "s2": true,
+        "s3": true
+      },
+      "pair": "rl-p1"
+    },
+    {
+      "id": "rl-02",
+      "state": "Two-bedroom flat near the park, $1,850/month. All utilities included. Sorry, no pets of any kind.",
+      "expected": {
+        "key": false,
+        "not_key": true,
+        "s2": false,
+        "s3": true
+      },
+      "pair": "rl-p1"
+    },
+    {
+      "id": "rl-03",
+      "state": "Studio above the bakery, $1,100 plus electricity and gas. Small caged pets such as hamsters are fine; no dogs or cats.",
+      "expected": {
+        "key": true,
+        "not_key": false,
+        "s2": false,
+        "s3": false
+      },
+      "pair": "rl-p2"
+    },
+    {
+      "id": "rl-04",
+      "state": "Studio above the bakery, $1,100 plus electricity and gas. The building has a strict no-animals policy.",
+      "expected": {
+        "key": false,
+        "not_key": true,
+        "s2": false,
+        "s3": false
+      },
+      "pair": "rl-p2"
+    },
+    {
+      "id": "rl-05",
+      "state": "Ground-floor three-bedroom house with a fenced yard. Tenant pays all utilities. The landlord says a well-behaved dog is fine.",
+      "expected": {
+        "key": true,
+        "not_key": false,
+        "s2": true,
+        "s3": false
+      },
+      "pair": "rl-p3"
+    },
+    {
+      "id": "rl-06",
+      "state": "Ground-floor three-bedroom house with a fenced yard. Tenant pays all utilities. The landlord's insurance does not permit any pets on the property.",
+      "expected": {
+        "key": false,
+        "not_key": true,
+        "s2": false,
+        "s3": false
+      },
+      "pair": "rl-p3"
+    },
+    {
+      "id": "rl-07",
+      "state": "Furnished one-bed, available from June 1. Rent of $1,400 covers water, electricity, internet and heating. Cats allowed (max 2), dogs not allowed.",
+      "expected": {
+        "key": true,
+        "not_key": false,
+        "s2": false,
+        "s3": true
+      },
+      "pair": "rl-p4"
+    },
+    {
+      "id": "rl-08",
+      "state": "Furnished one-bed, available from June 1. Rent of $1,400 covers water, electricity, internet and heating. No cats, no dogs, no other pets.",
+      "expected": {
+        "key": false,
+        "not_key": true,
+        "s2": false,
+        "s3": true
+      },
+      "pair": "rl-p4"
+    }
+  ]
+}

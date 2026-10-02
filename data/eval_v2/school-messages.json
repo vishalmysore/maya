@@ -1,0 +1,127 @@
+{
+  "domain": "school-messages",
+  "description": "Messages from a school to parents.",
+  "questions": {
+    "key": {
+      "type": "noul",
+      "instructions": "The parent needs to reply or do something"
+    },
+    "not_key": {
+      "type": "noul",
+      "instructions": "No reply or action is needed from the parent"
+    },
+    "s2": {
+      "type": "noul",
+      "instructions": "The child is currently unwell or hurt"
+    },
+    "s3": {
+      "type": "noul",
+      "instructions": "The message concerns the child's health or safety"
+    }
+  },
+  "relations": {
+    "negations": [
+      [
+        "key",
+        "not_key"
+      ]
+    ],
+    "implications": [
+      [
+        "s2",
+        "s3"
+      ]
+    ],
+    "minimal_pairs_flip": "key"
+  },
+  "cases": [
+    {
+      "id": "sm-01",
+      "state": "Arjun has been sick twice this morning and is lying down in the nurse's office. Please pick him up as soon as you can.",
+      "expected": {
+        "key": true,
+        "not_key": false,
+        "s2": true,
+        "s3": true
+      },
+      "pair": "sm-p1"
+    },
+    {
+      "id": "sm-02",
+      "state": "Arjun felt sick early this morning but has been fine since 10am and is enjoying art class. No need to pick him up; we'll keep an eye on him.",
+      "expected": {
+        "key": false,
+        "not_key": true,
+        "s2": false,
+        "s3": true
+      },
+      "pair": "sm-p1"
+    },
+    {
+      "id": "sm-03",
+      "state": "The Year 4 trip to the science museum is on Friday. Please sign and return the permission slip by Wednesday, or your child cannot attend.",
+      "expected": {
+        "key": true,
+        "not_key": false,
+        "s2": false,
+        "s3": false
+      },
+      "pair": "sm-p2"
+    },
+    {
+      "id": "sm-04",
+      "state": "The Year 4 trip to the science museum last Friday was a great success. Photos are now on the class page.",
+      "expected": {
+        "key": false,
+        "not_key": true,
+        "s2": false,
+        "s3": false
+      },
+      "pair": "sm-p2"
+    },
+    {
+      "id": "sm-05",
+      "state": "Our head lice check found lice on several children in Class 2B, including yours. Please treat your child's hair before they return tomorrow.",
+      "expected": {
+        "key": true,
+        "not_key": false,
+        "s2": false,
+        "s3": true
+      },
+      "pair": "sm-p3"
+    },
+    {
+      "id": "sm-06",
+      "state": "Our routine head lice check found no lice in Class 2B, including on your child. Thank you for your help.",
+      "expected": {
+        "key": false,
+        "not_key": true,
+        "s2": false,
+        "s3": true
+      },
+      "pair": "sm-p3"
+    },
+    {
+      "id": "sm-07",
+      "state": "Sofia's two library books are overdue. Please return them by Friday or pay the replacement fee.",
+      "expected": {
+        "key": true,
+        "not_key": false,
+        "s2": false,
+        "s3": false
+      },
+      "pair": "sm-p4"
+    },
+    {
+      "id": "sm-08",
+      "state": "Thanks for returning Sofia's two library books. Her library account is now clear.",
+      "expected": {
+        "key": false,
+        "not_key": true,
+        "s2": false,
+        "s3": false
+      },
+      "pair": "sm-p4"
+    }
+  ]
+}

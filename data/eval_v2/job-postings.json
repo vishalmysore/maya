@@ -1,0 +1,127 @@
+{
+  "domain": "job-postings",
+  "description": "Job advertisements.",
+  "questions": {
+    "key": {
+      "type": "noul",
+      "instructions": "The job can be done fully remotely"
+    },
+    "not_key": {
+      "type": "noul",
+      "instructions": "The job requires being on site at least some of the time"
+    },
+    "s2": {
+      "type": "noul",
+      "instructions": "The role requires five or more years of experience"
+    },
+    "s3": {
+      "type": "noul",
+      "instructions": "The role requires prior work experience"
+    }
+  },
+  "relations": {
+    "negations": [
+      [
+        "key",
+        "not_key"
+      ]
+    ],
+    "implications": [
+      [
+        "s2",
+        "s3"
+      ]
+    ],
+    "minimal_pairs_flip": "key"
+  },
+  "cases": [
+    {
+      "id": "jp-01",
+      "state": "Senior backend engineer, 100% remote anywhere in the EU. At least 6 years of Go experience.",
+      "expected": {
+        "key": true,
+        "not_key": false,
+        "s2": true,
+        "s3": true
+      },
+      "pair": "jp-p1"
+    },
+    {
+      "id": "jp-02",
+      "state": "Senior backend engineer, hybrid: three days a week in our Berlin office. At least 6 years of Go experience.",
+      "expected": {
+        "key": false,
+        "not_key": true,
+        "s2": true,
+        "s3": true
+      },
+      "pair": "jp-p1"
+    },
+    {
+      "id": "jp-03",
+      "state": "Customer support associate. Entry level, no experience needed, we train you. Work from home with a company laptop.",
+      "expected": {
+        "key": true,
+        "not_key": false,
+        "s2": false,
+        "s3": false
+      },
+      "pair": "jp-p2"
+    },
+    {
+      "id": "jp-04",
+      "state": "Customer support associate. Entry level, no experience needed, we train you. Based at our call centre in Leeds.",
+      "expected": {
+        "key": false,
+        "not_key": true,
+        "s2": false,
+        "s3": false
+      },
+      "pair": "jp-p2"
+    },
+    {
+      "id": "jp-05",
+      "state": "Inventory planner for our Dallas distribution center, fully remote with no travel. 2+ years of supply chain experience required.",
+      "expected": {
+        "key": true,
+        "not_key": false,
+        "s2": false,
+        "s3": true
+      },
+      "pair": "jp-p3"
+    },
+    {
+      "id": "jp-06",
+      "state": "Inventory planner working on the floor of our Dallas distribution center. 2+ years of supply chain experience required.",
+      "expected": {
+        "key": false,
+        "not_key": true,
+        "s2": false,
+        "s3": true
+      },
+      "pair": "jp-p3"
+    },
+    {
+      "id": "jp-07",
+      "state": "Staff data scientist. Fully remote, no travel required. 8+ years of experience in applied statistics.",
+      "expected": {
+        "key": true,
+        "not_key": false,
+        "s2": true,
+        "s3": true
+      },
+      "pair": "jp-p4"
+    },
+    {
+      "id": "jp-08",
+      "state": "Staff data scientist. Must be in the London office every Monday and Tuesday. 8+ years of experience in applied statistics.",
+      "expected": {
+        "key": false,
+        "not_key": true,
+        "s2": true,
+        "s3": true
+      },
+      "pair": "jp-p4"
+    }
+  ]
+}

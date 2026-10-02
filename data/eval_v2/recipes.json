@@ -1,0 +1,127 @@
+{
+  "domain": "recipes",
+  "description": "Short recipe and menu descriptions.",
+  "questions": {
+    "key": {
+      "type": "noul",
+      "instructions": "This dish is safe for someone with a peanut allergy"
+    },
+    "not_key": {
+      "type": "noul",
+      "instructions": "This dish is unsafe for someone with a peanut allergy"
+    },
+    "s2": {
+      "type": "noul",
+      "instructions": "The recipe contains meat"
+    },
+    "s3": {
+      "type": "noul",
+      "instructions": "The recipe contains animal products"
+    }
+  },
+  "relations": {
+    "negations": [
+      [
+        "key",
+        "not_key"
+      ]
+    ],
+    "implications": [
+      [
+        "s2",
+        "s3"
+      ]
+    ],
+    "minimal_pairs_flip": "key"
+  },
+  "cases": [
+    {
+      "id": "r-01",
+      "state": "Chicken satay: grill chicken skewers and serve with a sauce of peanut butter, soy sauce and lime.",
+      "expected": {
+        "key": false,
+        "not_key": true,
+        "s2": true,
+        "s3": true
+      },
+      "pair": "r-p1"
+    },
+    {
+      "id": "r-02",
+      "state": "Chicken skewers: grill chicken and serve with a sauce of tahini, soy sauce and lime. Made in a peanut-free kitchen.",
+      "expected": {
+        "key": true,
+        "not_key": false,
+        "s2": true,
+        "s3": true
+      },
+      "pair": "r-p1"
+    },
+    {
+      "id": "r-03",
+      "state": "Vegan pad thai with rice noodles, tofu, bean sprouts and a garnish of crushed roasted peanuts.",
+      "expected": {
+        "key": false,
+        "not_key": true,
+        "s2": false,
+        "s3": false
+      },
+      "pair": "r-p2"
+    },
+    {
+      "id": "r-04",
+      "state": "Vegan pad thai with rice noodles, tofu, bean sprouts and a garnish of toasted sesame seeds. No nuts are used.",
+      "expected": {
+        "key": true,
+        "not_key": false,
+        "s2": false,
+        "s3": false
+      },
+      "pair": "r-p2"
+    },
+    {
+      "id": "r-05",
+      "state": "Classic omelette made in a peanut-free kitchen: eggs, butter, chives and a pinch of salt.",
+      "expected": {
+        "key": true,
+        "not_key": false,
+        "s2": false,
+        "s3": true
+      },
+      "pair": "r-p3"
+    },
+    {
+      "id": "r-06",
+      "state": "Omelette with eggs, chives and a spoonful of peanut satay sauce.",
+      "expected": {
+        "key": false,
+        "not_key": true,
+        "s2": false,
+        "s3": true
+      },
+      "pair": "r-p3"
+    },
+    {
+      "id": "r-07",
+      "state": "Beef chili with kidney beans, tomatoes and cumin. May contain traces of peanuts from shared equipment.",
+      "expected": {
+        "key": false,
+        "not_key": true,
+        "s2": true,
+        "s3": true
+      },
+      "pair": "r-p4"
+    },
+    {
+      "id": "r-08",
+      "state": "Beef chili with kidney beans, tomatoes and cumin. Prepared in a certified nut-free facility.",
+      "expected": {
+        "key": true,
+        "not_key": false,
+        "s2": true,
+        "s3": true
+      },
+      "pair": "r-p4"
+    }
+  ]
+}

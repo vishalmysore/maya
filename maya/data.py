@@ -1,12 +1,19 @@
-"""Load the yes/no (noul) items from the hand-labeled eval set."""
+"""Load the yes/no (noul) items from a hand-labeled eval set.
+
+Eval files follow the layaMOE format (domain, questions, cases). eval_v2 files also carry
+`relations` (negation and implication pairs between questions) and a `pair` id per case
+(minimal pairs: two texts that differ in one detail and flip the `minimal_pairs_flip` answer).
+"""
 import json
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 EVAL_DIR = ROOT / "data" / "eval"
+EVAL_V2_DIR = ROOT / "data" / "eval_v2"
+EVAL_SETS = {"v1": EVAL_DIR, "v2": EVAL_V2_DIR}
 
-# Question pairs whose answers must disagree (one is the negation of the other).
-NEGATION_PAIRS = [("agent-guardrails", "needs_human", "safe_without_approval")]
+# v1 files predate `relations`; its one natural negation pair is listed here.
+V1_RELATIONS = {"agent-guardrails": {"negations": [["needs_human", "safe_without_approval"]]}}
 
 
 def state_text(state):
@@ -16,11 +23,17 @@ def state_text(state):
     return json.dumps(state, ensure_ascii=False)
 
 
-def load_yes_no_items(eval_dir=EVAL_DIR):
+def load_domains(eval_dir=EVAL_DIR):
     index = json.loads((eval_dir / "index.json").read_text(encoding="utf-8"))
-    items = []
     for entry in index["domains"]:
         domain = json.loads((eval_dir / entry["file"]).read_text(encoding="utf-8"))
+        domain.setdefault("relations", V1_RELATIONS.get(domain["domain"], {}))
+        yield domain
+
+
+def load_yes_no_items(eval_dir=EVAL_DIR):
+    items = []
+    for domain in load_domains(eval_dir):
         for key, q in domain["questions"].items():
             if q["type"] != "noul":
                 continue
@@ -35,5 +48,11 @@ def load_yes_no_items(eval_dir=EVAL_DIR):
                     "statement": q["instructions"],
                     "text": state_text(case["state"]),
                     "label": bool(label),
+                    "pair": case.get("pair"),
                 })
     return items
+
+
+def load_relations(eval_dir=EVAL_DIR):
+    """{domain: {"negations": [[qa, qb]], "implications": [[qa, qb]], "minimal_pairs_flip": q}}"""
+    return {d["domain"]: d["relations"] for d in load_domains(eval_dir)}

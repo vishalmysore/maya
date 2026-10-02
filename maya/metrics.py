@@ -2,8 +2,6 @@
 import numpy as np
 from sklearn.metrics import roc_auc_score
 
-from .data import NEGATION_PAIRS
-
 
 def ece(p, y, bins=10):
     p, y = np.asarray(p, float), np.asarray(y, float)
@@ -19,8 +17,8 @@ def ece(p, y, bins=10):
 def coverage_at_risk(p, y, max_error):
     """Largest share of items that can be answered (most confident first) with error <= max_error.
 
-    Fitted and measured on the same items, so it is an optimistic upper bound; Maya's
-    conformal version will fit the threshold on held-out data.
+    Fitted and measured on the same items, so it is an optimistic upper bound; see
+    maya/conformal.py for a threshold fitted on separate data.
     """
     p, y = np.asarray(p, float), np.asarray(y, bool)
     conf = np.abs(p - 0.5)
@@ -31,28 +29,43 @@ def coverage_at_risk(p, y, max_error):
     return float((ok.max() + 1) / len(p)) if len(ok) else 0.0
 
 
-def contradiction_rate(items, probs):
-    """Share of negation pairs (same case) where both answers are yes or both are no."""
-    by_key = {(it["domain"], it["id"], it["question"]): pr for it, pr in zip(items, probs)}
-    bad = n = 0
-    for domain, qa, qb in NEGATION_PAIRS:
-        for (d, cid, q), pa in by_key.items():
-            if d != domain or q != qa:
-                continue
-            pb = by_key.get((d, cid, qb))
-            if pb is None:
-                continue
-            n += 1
-            bad += (pa >= 0.5) == (pb >= 0.5)
-    return (bad / n if n else float("nan")), n
+def consistency(items, probs, relations):
+    """Negation pairs answered the same way, implications A=yes/B=no, minimal pairs not flipped."""
+    p = {(it["domain"], it["id"], it["question"]): pr >= 0.5 for it, pr in zip(items, probs)}
+    cases = {(it["domain"], it["id"]) for it in items}
+    neg = [0, 0]
+    imp = [0, 0]
+    for d, cid in cases:
+        rel = relations.get(d, {})
+        for qa, qb in rel.get("negations", []):
+            if (d, cid, qa) in p and (d, cid, qb) in p:
+                neg[1] += 1
+                neg[0] += p[(d, cid, qa)] == p[(d, cid, qb)]
+        for qa, qb in rel.get("implications", []):
+            if (d, cid, qa) in p and (d, cid, qb) in p:
+                imp[1] += 1
+                imp[0] += p[(d, cid, qa)] and not p[(d, cid, qb)]
+    # minimal pairs: both texts right on the flipped question
+    pairs = {}
+    for it, pr in zip(items, probs):
+        flip = relations.get(it["domain"], {}).get("minimal_pairs_flip")
+        if it.get("pair") and it["question"] == flip:
+            pairs.setdefault((it["domain"], it["pair"]), []).append((pr >= 0.5) == it["label"])
+    mp = [sum(all(v) for v in pairs.values()), len(pairs)]
+
+    def rate(a):
+        return a[0] / a[1] if a[1] else float("nan")
+
+    return {"negation_contradictions": rate(neg), "negation_pairs": neg[1],
+            "implication_violations": rate(imp), "implication_pairs": imp[1],
+            "minimal_pairs_both_right": rate(mp), "minimal_pairs": mp[1]}
 
 
-def summarize(items, probs):
+def summarize(items, probs, relations=None):
     y = np.array([it["label"] for it in items], bool)
     p = np.asarray(probs, float)
     pred = p >= 0.5
-    contra, pairs = contradiction_rate(items, p)
-    return {
+    out = {
         "n": int(len(y)),
         "accuracy": float((pred == y).mean()),
         "balanced_accuracy": float(0.5 * (pred[y].mean() + (~pred[~y]).mean())),
@@ -62,9 +75,10 @@ def summarize(items, probs):
         "yes_rate": float(pred.mean()),
         "coverage_at_10pct_error": coverage_at_risk(p, y, 0.10),
         "coverage_at_5pct_error": coverage_at_risk(p, y, 0.05),
-        "contradiction_rate": contra,
-        "contradiction_pairs": pairs,
     }
+    if relations is not None:
+        out.update(consistency(items, p, relations))
+    return out
 
 
 def per_domain_accuracy(items, probs):

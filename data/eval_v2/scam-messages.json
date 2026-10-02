@@ -1,0 +1,127 @@
+{
+  "domain": "scam-messages",
+  "description": "Text messages and chat messages, some of them scams.",
+  "questions": {
+    "key": {
+      "type": "noul",
+      "instructions": "This message is a scam or phishing attempt"
+    },
+    "not_key": {
+      "type": "noul",
+      "instructions": "This message is legitimate"
+    },
+    "s2": {
+      "type": "noul",
+      "instructions": "The message asks for a password, a security code or card details"
+    },
+    "s3": {
+      "type": "noul",
+      "instructions": "The message asks the reader to reply, click a link or pay"
+    }
+  },
+  "relations": {
+    "negations": [
+      [
+        "key",
+        "not_key"
+      ]
+    ],
+    "implications": [
+      [
+        "s2",
+        "s3"
+      ]
+    ],
+    "minimal_pairs_flip": "key"
+  },
+  "cases": [
+    {
+      "id": "sm-01",
+      "state": "Your bank: unusual login detected. Reply with the 6-digit code we just texted you to keep your account open.",
+      "expected": {
+        "key": true,
+        "not_key": false,
+        "s2": true,
+        "s3": true
+      },
+      "pair": "sm-p1"
+    },
+    {
+      "id": "sm-02",
+      "state": "Your bank: your one-time login code is 482913. Never share this code with anyone, including bank staff.",
+      "expected": {
+        "key": false,
+        "not_key": true,
+        "s2": false,
+        "s3": false
+      },
+      "pair": "sm-p1"
+    },
+    {
+      "id": "sm-03",
+      "state": "Hi it's your CEO. I'm stuck in a meeting, please wire $4,800 to this new supplier account today and keep it quiet.",
+      "expected": {
+        "key": true,
+        "not_key": false,
+        "s2": false,
+        "s3": true
+      },
+      "pair": "sm-p2"
+    },
+    {
+      "id": "sm-04",
+      "state": "Hi, it's Dana from Finance. The supplier invoice you approved last week has been paid through the usual system; no action needed.",
+      "expected": {
+        "key": false,
+        "not_key": true,
+        "s2": false,
+        "s3": false
+      },
+      "pair": "sm-p2"
+    },
+    {
+      "id": "sm-05",
+      "state": "USPS: your parcel could not be delivered due to an unpaid $1.99 customs fee. Enter your card number at usps-redelivery-help.top to avoid return.",
+      "expected": {
+        "key": true,
+        "not_key": false,
+        "s2": true,
+        "s3": true
+      },
+      "pair": "sm-p3"
+    },
+    {
+      "id": "sm-06",
+      "state": "USPS: your parcel was delivered today at 2:14 pm and left at the front door.",
+      "expected": {
+        "key": false,
+        "not_key": true,
+        "s2": false,
+        "s3": false
+      },
+      "pair": "sm-p3"
+    },
+    {
+      "id": "sm-07",
+      "state": "Congratulations! You've won a free iPhone 17. Click bit.ly/fr33-phone to claim it before midnight.",
+      "expected": {
+        "key": true,
+        "not_key": false,
+        "s2": false,
+        "s3": true
+      },
+      "pair": "sm-p4"
+    },
+    {
+      "id": "sm-08",
+      "state": "Your library hold 'The Overstory' is ready. Pick it up at the Main Branch front desk within 7 days.",
+      "expected": {
+        "key": false,
+        "not_key": true,
+        "s2": false,
+        "s3": false
+      },
+      "pair": "sm-p4"
+    }
+  ]
+}
