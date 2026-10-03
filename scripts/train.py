@@ -10,11 +10,13 @@ Loss per step (a step = several texts with all their statements, plus a few MNLI
       * domain implications A => B: relu(t_A - t_B) (B may be "not:x", then t_B = 1 - t_x)
   - BCE on MNLI pairs (entailment = yes) so the model keeps its general NLI ability
 
-Model selection uses only the synthetic validation split; data/eval and data/eval_v2 are never
-looked at during training.
+Model selection uses the synthetic validation split (--select val) or the small hand-labeled dev set
+(--select dev, data/dev); the test sets data/eval, data/eval_v2 and data/eval_v3 are never looked at
+during training.
 
     python scripts/train.py --out checkpoints/maya
     python scripts/train.py --out checkpoints/maya-noconsist --consistency 0
+    python scripts/train.py --base MoritzLaurer/deberta-v3-large-zeroshot-v2.0 --data data/train_v2         --boolq-per-step 2 --mnli-per-step 2 --freeze-embeddings --select dev --out checkpoints/maya-v2-large
 """
 import argparse
 import json
@@ -44,6 +46,31 @@ def load_mnli(n, seed):
     from datasets import load_dataset
     d = load_dataset("nyu-mll/glue", "mnli", split="train[:60000]").shuffle(seed=seed).select(range(n))
     return [(r["premise"], r["hypothesis"], r["label"] == 0) for r in d]
+
+
+def load_boolq(n, seed):
+    """Real yes/no questions about Wikipedia passages: (passage, question, answer)."""
+    from datasets import load_dataset
+    d = load_dataset("google/boolq", split="train").shuffle(seed=seed)
+    d = d.select(range(min(n, len(d))))
+    return [(r["passage"], r["question"][0].upper() + r["question"][1:] + "?", bool(r["answer"])) for r in d]
+
+
+@torch.inference_mode()
+def evaluate_dev(model, tok, max_length, bs=32):
+    """Accuracy on the hand-labeled dev set (data/dev), used for checkpoint selection."""
+    from maya.data import DEV_DIR, load_yes_no_items
+    items = load_yes_no_items(DEV_DIR)
+    model.eval()
+    ps = []
+    for i in range(0, len(items), bs):
+        b = items[i:i + bs]
+        ps.extend(torch.sigmoid(yes_logit(model, tok, [it["text"] for it in b], [it["statement"] for it in b],
+                                          max_length)).tolist())
+    model.train()
+    y = np.array([it["label"] for it in items])
+    p = np.array(ps)
+    return {"dev_accuracy": float(((p >= 0.5) == y).mean()), "dev_ece": ece(p, y), "dev_n": len(y)}
 
 
 def yes_logit(model, tok, texts, statements, max_length):
@@ -113,20 +140,30 @@ def main():
     ap.add_argument("--eval-every", type=int, default=230)
     ap.add_argument("--val-texts", type=int, default=160, help="validation texts used for checkpoint selection")
     ap.add_argument("--seed", type=int, default=0)
+    ap.add_argument("--data", default=str(ROOT / "data" / "train"), help="folder with train.jsonl and val.jsonl")
+    ap.add_argument("--boolq-per-step", type=int, default=0)
+    ap.add_argument("--anchor-weight", type=float, default=0.5, help="loss weight of the MNLI/BoolQ pairs")
+    ap.add_argument("--freeze-embeddings", action="store_true")
+    ap.add_argument("--select", choices=["val", "dev"], default="val",
+                    help="checkpoint selection: synthetic val accuracy, or hand-labeled dev accuracy (ties -> val)")
     args = ap.parse_args()
 
     random.seed(args.seed)
     torch.manual_seed(args.seed)
-    train = load_rows(ROOT / "data" / "train" / "train.jsonl")
-    val = load_rows(ROOT / "data" / "train" / "val.jsonl")
+    train = load_rows(Path(args.data) / "train.jsonl")
+    val = load_rows(Path(args.data) / "val.jsonl")
     val = random.Random(1).sample(val, min(args.val_texts, len(val)))
     steps = math.ceil(len(train) * args.epochs / args.texts_per_step)
     mnli = load_mnli(steps * args.mnli_per_step, args.seed) if args.mnli_per_step else []
+    boolq = load_boolq(steps * args.boolq_per_step, args.seed) if args.boolq_per_step else []
 
     tok = AutoTokenizer.from_pretrained(args.base)
     model = AutoModelForSequenceClassification.from_pretrained(args.base, dtype=torch.float32)  # bf16 default is very slow on CPU
     model.train()
-    opt = torch.optim.AdamW(model.parameters(), lr=args.lr, weight_decay=0.01)
+    if args.freeze_embeddings:
+        for p in model.base_model.embeddings.parameters():
+            p.requires_grad = False
+    opt = torch.optim.AdamW([p for p in model.parameters() if p.requires_grad], lr=args.lr, weight_decay=0.01)
     warm = max(1, int(0.06 * steps))
     sched = torch.optim.lr_scheduler.LambdaLR(
         opt, lambda s: min(1.0, (s + 1) / warm) * max(0.0, (steps - s) / max(1, steps - warm)))
@@ -135,6 +172,8 @@ def main():
     out.mkdir(parents=True, exist_ok=True)
     log = {"args": vars(args), "steps": steps, "evals": []}
     v0 = evaluate(model, tok, val, args.max_length)
+    if args.select == "dev":
+        v0.update(evaluate_dev(model, tok, args.max_length))
     log["evals"].append({"step": 0, **v0})
     print(f"step 0 val {v0}", flush=True)
     best = None
@@ -155,17 +194,18 @@ def main():
                 stmts.append(it["statement"])
                 labels.append(float(it["label"]))
         n_task = len(texts)
-        for prem, hyp, lab in mnli[step * args.mnli_per_step:(step + 1) * args.mnli_per_step]:
-            texts.append(prem)
-            stmts.append(hyp)
-            labels.append(float(lab))
+        anchors = (mnli[step * args.mnli_per_step:(step + 1) * args.mnli_per_step]
+                   + boolq[step * args.boolq_per_step:(step + 1) * args.boolq_per_step])
+        # task pairs and anchor pairs (long BoolQ passages) are padded separately
         z = yes_logit(model, tok, texts, stmts, args.max_length)
         y = torch.tensor(labels)
-        bce = F.binary_cross_entropy_with_logits(z[:n_task], y[:n_task])
+        bce = F.binary_cross_entropy_with_logits(z, y)
         loss = bce
-        if len(texts) > n_task:
-            loss = loss + 0.5 * F.binary_cross_entropy_with_logits(z[n_task:], y[n_task:])
-        cons = consistency_loss(offs, torch.sigmoid(z[:n_task])) if args.consistency else torch.tensor(0.0)
+        if anchors:
+            za = yes_logit(model, tok, [a[0] for a in anchors], [a[1] for a in anchors], args.max_length)
+            ya = torch.tensor([float(a[2]) for a in anchors])
+            loss = loss + args.anchor_weight * F.binary_cross_entropy_with_logits(za, ya)
+        cons = consistency_loss(offs, torch.sigmoid(z)) if args.consistency else torch.tensor(0.0)
         loss = loss + args.consistency * cons
         loss.backward()
         torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
@@ -178,10 +218,13 @@ def main():
                   f"{el / (step + 1):.1f}s/step eta {el / (step + 1) * (steps - step - 1) / 60:.0f}m", flush=True)
         if (step + 1) % args.eval_every == 0 or step + 1 == steps:
             v = evaluate(model, tok, val, args.max_length)
+            if args.select == "dev":
+                v.update(evaluate_dev(model, tok, args.max_length))
             log["evals"].append({"step": step + 1, **v})
             print(f"step {step + 1} val {v}", flush=True)
-            if best is None or v["accuracy"] >= best:
-                best = v["accuracy"]
+            score = (v["dev_accuracy"], v["accuracy"]) if args.select == "dev" else (v["accuracy"],)
+            if best is None or score >= best:
+                best = score
                 model.config.id2label = {0: "yes", 1: "no"}
                 model.config.label2id = {"yes": 0, "no": 1}
                 model.save_pretrained(out)

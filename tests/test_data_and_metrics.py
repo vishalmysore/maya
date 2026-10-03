@@ -128,3 +128,34 @@ def test_result_files_have_every_probability(name):
     d = json.loads((ROOT / "results" / f"eval_{name}.json").read_text(encoding="utf-8"))
     assert len(d["sets"]["v1"]["probs"]) == 120 and len(d["sets"]["v2"]["probs"]) == 256
     assert all(0.0 <= p <= 1.0 for p in d["sets"]["v2"]["probs"])
+
+
+# ------------------------------------------------------------------ v0.2 sets: eval_v3 (test) and dev
+def test_v3_and_dev_counts():
+    from maya.data import DEV_DIR, EVAL_V3_DIR
+    v3, dev = load_yes_no_items(EVAL_V3_DIR), load_yes_no_items(DEV_DIR)
+    assert len(v3) == 192 and len(dev) == 64
+    assert sum(i["trap"] for i in v3 if i["question"] == "key") >= 10
+
+
+@pytest.mark.parametrize("which", ["v3", "dev"])
+def test_v3_dev_relations_and_pairs(which):
+    from maya.data import DEV_DIR, EVAL_V3_DIR
+    for dom in load_domains(EVAL_V3_DIR if which == "v3" else DEV_DIR):
+        rel = dom["relations"]
+        pairs = {}
+        for c in dom["cases"]:
+            e = c["expected"]
+            for a, b in rel["negations"]:
+                assert e[a] != e[b]
+            for a, b in rel["implications"]:
+                assert not (e[a] and not e[b]), (dom["domain"], c["id"], a, b)
+            pairs.setdefault(c["pair"], []).append(e["key"])
+        assert all(len(v) == 2 and v[0] != v[1] for v in pairs.values())
+
+
+def test_v3_dev_texts_do_not_overlap():
+    from maya.data import DEV_DIR, EVAL_V3_DIR
+    t3 = {c["state"] for d in load_domains(EVAL_V3_DIR) for c in d["cases"]}
+    td = {c["state"] for d in load_domains(DEV_DIR) for c in d["cases"]}
+    assert not (t3 & td)

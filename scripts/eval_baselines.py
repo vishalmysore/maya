@@ -31,6 +31,7 @@ NLI_MODELS = [
 REFERENCES = {
     "v1": ("laya_moe_eval_reference.json", {"general": "laya-typed-decisions", "moe": "layaMOE (prompted router)"}),
     "v2": ("laya_v2_reference.json", {"general": "laya-typed-decisions", "moe": "layaMOE (trained router)"}),
+    "v3": ("laya_v3_reference.json", {"general": "laya-typed-decisions", "moe": "layaMOE (trained router)"}),
 }
 
 

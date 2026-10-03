@@ -81,10 +81,52 @@ def test_generated_training_file_has_no_eval_overlap():
         return {tuple(w[i:i + 5]) for i in range(max(0, len(w) - 4))}
 
     ev = set()
-    for d in EVAL_SETS.values():
+    for name, d in EVAL_SETS.items():
+        if name == "v3":  # eval_v3 was written after the v0.1 data; v0.2 data is checked against it below
+            continue
         for dom in load_domains(d):
             for c in dom["cases"]:
                 ev |= grams(state_text(c["state"]))
     for line in open(path, encoding="utf-8"):
         r = json.loads(line)
         assert not (grams(r["text"]) & ev), r["text"]
+
+
+# ------------------------------------------------------------------ v0.2 generators and data
+def test_v2_generators_rules_hold():
+    from gen.guardrails_v2 import GUARDRAILS
+    from gen.tone_v2 import TONE
+    rng = random.Random(9)
+    for D in (GUARDRAILS, TONE):
+        for _ in range(2000):
+            s = D.sample(rng)
+            facts = {f.name: f for f in D.facts(s)}
+            for a, b in D.implications:
+                if a in facts and (b[4:] if b.startswith("not:") else b) in facts:
+                    assert not facts[a].value or fact_value(facts, b), (D.name, a, b, s)
+            assert D.render(s) == D.render(dict(s))
+
+
+def test_train_v2_has_no_held_out_statements_or_texts():
+    import json
+    path = ROOT / "data" / "train_v2" / "train.jsonl"
+    if not path.exists():
+        import pytest
+        pytest.skip("run scripts/gen_train_data_v2.py first")
+    from maya.data import DEV_DIR
+
+    def grams(t):
+        w = re.findall(r"[a-z0-9]+", t.lower())
+        return {tuple(w[i:i + 5]) for i in range(max(0, len(w) - 4))}
+
+    held, ev = set(), set()
+    for name, d in {**EVAL_SETS, "dev": DEV_DIR}.items():
+        for dom in load_domains(d):
+            if name != "v1":
+                held |= {q["instructions"].lower() for q in dom["questions"].values()}
+            for c in dom["cases"]:
+                ev |= grams(state_text(c["state"]))
+    for line in open(path, encoding="utf-8"):
+        r = json.loads(line)
+        assert not (grams(r["text"]) & ev), r["text"]
+        assert not ({it["statement"].lower() for it in r["items"]} & held)

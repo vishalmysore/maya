@@ -10,7 +10,7 @@ from pathlib import Path
 args = [a for a in sys.argv[1:] if not a.startswith("--")]
 COI = "--no-coi" not in sys.argv
 PORT = int(args[0]) if args else 8000
-ROOT = Path(__file__).resolve().parent / "dist"
+ROOT = Path(os.environ.get("MAYA_SITE", Path(__file__).resolve().parent / "dist"))
 
 
 class Handler(http.server.SimpleHTTPRequestHandler):

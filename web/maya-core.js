@@ -10,7 +10,7 @@ export class Maya {
     const th = config.thresholds || {};
     this.tYes = th.t_yes ?? 0.5;
     this.tNo = th.t_no ?? 0.5;
-    this.padId = 50283; // ModernBERT [PAD]
+    this.padId = config.pad_token_id ?? 50283; // from maya_config.json (ModernBERT [PAD] = 50283, DeBERTa = 0)
     this.maxLen = 256;
   }
 

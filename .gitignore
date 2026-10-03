@@ -8,3 +8,4 @@ logs/
 data/train/
 node_modules/
 dist/
+data/train_v2/

@@ -148,6 +148,8 @@ def main():
     onnx_dir.mkdir(parents=True, exist_ok=True)
 
     tok = AutoTokenizer.from_pretrained(ckpt)
+    if not (ckpt / "tokenizer.json").exists():  # the browser needs the fast-tokenizer file
+        tok.save_pretrained(ckpt)
     model = AutoModelForSequenceClassification.from_pretrained(ckpt, dtype=torch.float32).eval()
     raw = export_fp32(model, tok, onnx_dir)
     quantize_q8(raw, onnx_dir / "model.onnx")
@@ -163,8 +165,9 @@ def main():
                 "verification": check}
     for f in ("tokenizer.json", "tokenizer_config.json"):
         shutil.copy(ckpt / f, web / f)
-    if (ckpt / "maya_config.json").exists():
-        shutil.copy(ckpt / "maya_config.json", web / "maya_config.json")
+    cfg = json.loads((ckpt / "maya_config.json").read_text(encoding="utf-8")) if (ckpt / "maya_config.json").exists() else {}
+    cfg["pad_token_id"] = tok.pad_token_id
+    (web / "maya_config.json").write_text(json.dumps(cfg, indent=1), encoding="utf-8")
     (web / "manifest.json").write_text(json.dumps(manifest, indent=2), encoding="utf-8")
     for f in ("LICENSE", "NOTICE.md"):
         shutil.copy(ROOT / f, web / f)
