@@ -1,23 +1,23 @@
 {
  "threads": 4,
  "models": {
+  "checkpoints/maya-v2-large": {
+   "params_m": 435.1,
+   "ms_1q": 552.2,
+   "ms_5q": 1326.2,
+   "ms_20q": 4419.1
+  },
+  "checkpoints/maya-v2-base": {
+   "params_m": 184.4,
+   "ms_1q": 165.8,
+   "ms_5q": 415.3,
+   "ms_20q": 1355.9
+  },
   "checkpoints/maya-final-copy": {
    "params_m": 149.6,
-   "ms_1q": 168.6,
-   "ms_5q": 665.7,
-   "ms_20q": 2596.4
-  },
-  "MoritzLaurer/deberta-v3-large-zeroshot-v2.0": {
-   "params_m": 435.1,
-   "ms_1q": 1087.7,
-   "ms_5q": 2614.0,
-   "ms_20q": 8230.3
-  },
-  "MoritzLaurer/deberta-v3-xsmall-zeroshot-v1.1-all-33": {
-   "params_m": 70.8,
-   "ms_1q": 120.3,
-   "ms_5q": 246.6,
-   "ms_20q": 787.3
+   "ms_1q": 96.9,
+   "ms_5q": 425.0,
+   "ms_20q": 1389.3
   }
  }
 }

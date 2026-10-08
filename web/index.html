@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Maya: yes/no gate in your browser</title>
 <script src="./coi.js"></script>
-<meta name="description" content="Maya is a 150M-parameter yes/no gate that runs fully in the browser with ONNX Runtime Web. Ask yes/no questions about any text and get P(yes), with an optional 'not sure' band.">
+<meta name="description" content="Maya is a 435M-parameter yes/no gate that runs fully in the browser with ONNX Runtime Web. Ask yes/no questions about any text and get P(yes), with an optional 'not sure' band.">
 <style>
   :root { --bg: #f7f7f5; --card: #ffffff; --ink: #1d1d1b; --muted: #6b6b66; --line: #e3e2dd;
           --yes: #1f7a4d; --no: #b03a2e; --unsure: #a66a00; --accent: #2f5bd3; --track: #ecebe6; }
@@ -50,7 +50,7 @@
 <body>
 <main>
   <h1>Maya: a yes/no gate in your browser</h1>
-  <p class="sub">A 150M-parameter model that reads a text and answers yes/no questions about it, fully on your device (ONNX Runtime Web, int8, about 160 MB downloaded once). Every answer is <b>yes</b>, <b>no</b> or, if you set a band, <b>not sure</b>. <a href="https://github.com/vishalmysore/maya">Code and results</a>.</p>
+  <p class="sub">A 435M-parameter model that reads a text and answers yes/no questions about it, fully on your device (ONNX Runtime Web, int8, about 600 MB downloaded once and then cached). Every answer is <b>yes</b>, <b>no</b> or, if you set a band, <b>not sure</b>. <a href="https://github.com/vishalmysore/maya">Code and results</a>.</p>
 
   <section class="card" id="loadCard">
     <div class="row"><button id="loadBtn">Load Maya</button><span id="status">Not loaded.</span></div>
@@ -78,7 +78,7 @@
     <div class="meta" id="meta"></div>
   </section>
 
-  <p class="note">Maya v0.1 is strongest on the kinds of text it was trained on (agent plans, moderation, support tickets, deliveries, email, IT incidents, reviews, expenses, meetings, code changes, insurance and sales). On unseen domains it is level with Laya, and it can be fooled by word overlap, so do not use it as the only safety check. Apache-2.0, unofficial experiment.</p>
+  <p class="note">Maya v0.2 (a fine-tune of DeBERTa-v3-large) scores 87.5% on a judgment test set written before its training data, 95.3% on eight unseen domains and 87.5% on familiar ones. It still makes mistakes, so do not use it as the only safety check. Apache-2.0, unofficial experiment.</p>
 </main>
 <script type="module" src="./app.js"></script>
 </body>

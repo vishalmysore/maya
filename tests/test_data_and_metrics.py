@@ -123,10 +123,12 @@ def test_fit_temperature_recovers_scale():
 
 
 # ------------------------------------------------------------------ recorded results are complete
-@pytest.mark.parametrize("name", ["maya", "base", "maya-noconsist"])
+@pytest.mark.parametrize("name", ["maya-v2-large", "maya-v2-base", "maya-v2-ensemble", "maya-v0.1",
+                                  "deberta-large-zeroshot", "deberta-base-zeroshot"])
 def test_result_files_have_every_probability(name):
     d = json.loads((ROOT / "results" / f"eval_{name}.json").read_text(encoding="utf-8"))
     assert len(d["sets"]["v1"]["probs"]) == 120 and len(d["sets"]["v2"]["probs"]) == 256
+    assert len(d["sets"]["v3"]["probs"]) == 192 and len(d["sets"]["dev"]["probs"]) == 64
     assert all(0.0 <= p <= 1.0 for p in d["sets"]["v2"]["probs"])
 
 
