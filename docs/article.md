@@ -1,15 +1,15 @@
 ---
-title: "Maya: Open-Source Yes/No AI Guardrail Model (Runs in Browser)"
+title: "LLM Guards Vs Maya - a Lightweight 435M Yes/No Safety Gate for AI Agents"
 description: "Maya is an open-source yes/no AI guardrail model. See how it compares with Jev, Laya, NLI encoders and LLM guards, with benchmarks and a live browser demo."
 keywords: [yes/no classifier, AI guardrail model, LLM guardrails, open-source guardrail model, Jev, Laya, decision model, System One model, typed decisions, natural language inference, NLI encoder, zero-shot classification, Llama Guard, ShieldGemma, Prompt Guard, DeBERTa-v3, fine-tuning, model calibration, ONNX Runtime Web, WebAssembly, browser AI, AI agent safety]
 author: Vishal Mysore
 date: 2026-10-08
-slug: maya-open-source-yes-no-ai-guardrail-model
+slug: llm-guards-vs-maya-yes-no-safety-gate-for-ai-agents
 image: images/maya-yes-no-in-between.jpg
 image_alt: "A figure in a forest, half solid and half dissolving into smoke: yes, no, or something in between"
 ---
 
-# Maya: Open-Source Yes/No AI Guardrail Model (Runs in Browser)
+# LLM Guards Vs Maya - a Lightweight 435M Yes/No Safety Gate for AI Agents
 
 ![A figure in a forest, half solid and half dissolving into smoke](images/maya-yes-no-in-between.jpg)
 
