@@ -19,7 +19,7 @@ OUT = ROOT / "docs" / "images"
 SURFACE, INK, MUTED, GRID = "#fcfcfb", "#0b0b0b", "#52514e", "#e6e5e0"
 SERIES = ["#2a78d6", "#eb6834", "#1baf7a"]
 NEUTRAL = "#b9b8b2"
-SETS = [("v3", "v3: judgment questions (192)"), ("v2", "v2: unseen domains (256)"), ("v1", "v1: familiar domains (120)")]
+SETS = [("v3", "Judgment questions (192)"), ("v2", "Unseen domains (256)"), ("v1", "Familiar domains (120)")]
 
 plt.rcParams.update({"font.family": "Segoe UI", "font.size": 11, "text.color": INK, "axes.labelcolor": MUTED,
                      "xtick.color": MUTED, "ytick.color": INK, "axes.edgecolor": GRID})
@@ -36,8 +36,7 @@ def load():
     return {
         "laya-typed-decisions (421M)": laya,
         "DeBERTa-v3-large zero-shot (435M)": ev("deberta-large-zeroshot"),
-        "Maya v0.1 (150M)": ev("maya-v0.1"),
-        "Maya v0.2 (435M)": ev("maya-v2-large"),
+        "Maya (435M)": ev("maya-v2-large"),
     }
 
 
@@ -52,13 +51,13 @@ def style(ax):
 
 def bold_maya(ax):
     for t in ax.get_yticklabels():
-        if t.get_text().startswith("Maya v0.2"):
+        if t.get_text().startswith("Maya"):
             t.set_fontweight("bold")
 
 
 def accuracy_chart(data):
     labels = list(data)
-    fig, ax = plt.subplots(figsize=(9.5, 5.2), dpi=200)
+    fig, ax = plt.subplots(figsize=(9.5, 4.4), dpi=200)
     fig.patch.set_facecolor(SURFACE)
     style(ax)
     h = 0.25
@@ -74,7 +73,7 @@ def accuracy_chart(data):
     bold_maya(ax)
     ax.set_xlim(0, 108)
     ax.set_xlabel("Accuracy on hand-labeled yes/no answers (%)")
-    ax.set_title("Maya v0.2 is the most accurate model on all three test sets", loc="left", fontsize=12.5, pad=26)
+    ax.set_title("Maya is the most accurate model on all three test sets", loc="left", fontsize=12.5, pad=26)
     ax.legend(handles=[plt.Rectangle((0, 0), 1, 1, color=c) for c in SERIES], labels=[n for _, n in SETS],
               loc="lower left", bbox_to_anchor=(0, 1.0), ncol=3, frameon=False, fontsize=9.5, handlelength=1.2)
     fig.tight_layout()
@@ -91,12 +90,12 @@ def contradiction_chart(data):
         for i, lab in enumerate(labels):
             y = len(labels) - 1 - i
             v = data[lab][s]["negation_contradictions"] * 100
-            ax.barh(y, v, height=0.6, color=SERIES[0] if lab.startswith("Maya v0.2") else NEUTRAL)
+            ax.barh(y, v, height=0.6, color=SERIES[0] if lab.startswith("Maya") else NEUTRAL)
             ax.text(v + 2, y, f"{v:.0f}%", va="center", fontsize=9.5, color=INK)
         ax.set_xlim(0, 120)
         ax.set_xticks([0, 25, 50, 75, 100])
         n = data[labels[0]][s].get("negation_pairs", 12)
-        ax.set_title(f"{title.split(':')[0]} ({n} negation pairs)", loc="left", fontsize=11, color=MUTED)
+        ax.set_title(f"{title.split(' (')[0]} ({n} negation pairs)", loc="left", fontsize=11, color=MUTED)
     axes[0].set_yticks(range(len(labels)))
     axes[0].set_yticklabels(list(reversed(labels)))
     bold_maya(axes[0])
@@ -117,11 +116,11 @@ def pairs_chart(data):
         for i, lab in enumerate(labels):
             y = len(labels) - 1 - i
             v = data[lab][s]["minimal_pairs_both_right"] * 100
-            ax.barh(y, v, height=0.6, color=SERIES[0] if lab.startswith("Maya v0.2") else NEUTRAL)
+            ax.barh(y, v, height=0.6, color=SERIES[0] if lab.startswith("Maya") else NEUTRAL)
             ax.text(v + 2, y, f"{v:.0f}%", va="center", fontsize=9.5, color=INK)
         ax.set_xlim(0, 115)
         ax.set_xticks([0, 25, 50, 75, 100])
-        ax.set_title(f"{title.split(':')[0]} ({data[labels[0]][s]['minimal_pairs']} pairs)", loc="left", fontsize=11, color=MUTED)
+        ax.set_title(f"{title.split(' (')[0]} ({data[labels[0]][s]['minimal_pairs']} pairs)", loc="left", fontsize=11, color=MUTED)
     axes[0].set_yticks(range(len(labels)))
     axes[0].set_yticklabels(list(reversed(labels)))
     bold_maya(axes[0])

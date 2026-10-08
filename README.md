@@ -34,7 +34,7 @@ Three hand-labeled test sets, never used for training or model selection, plus a
 
 v2 and v3 cases come with a hand-written negation of the key statement, an implication pair, and a minimal-pair partner (the same text with one detail changed, which flips the key answer).
 
-![Accuracy of Laya, zero-shot DeBERTa-v3-large, Maya v0.1 and Maya v0.2 on the three test sets](docs/images/chart-accuracy.png)
+![Accuracy of Laya, zero-shot DeBERTa-v3-large and Maya on the three test sets](docs/images/chart-accuracy.png)
 
 ### Accuracy
 
