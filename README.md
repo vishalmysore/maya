@@ -5,7 +5,7 @@
 Maya v0.2 is a 435M-parameter cross-encoder fine-tuned from [DeBERTa-v3-large-zeroshot-v2.0](https://huggingface.co/MoritzLaurer/deberta-v3-large-zeroshot-v2.0).
 
 - **Live demo (runs in your browser): https://vishalmysore.github.io/maya/**
-- Article: [docs/article.md](docs/article.md) (v0.2: what was wrong with v0.1, how it was fixed, results, remaining failures). The v0.1 article is [docs/article-v0.1.md](docs/article-v0.1.md).
+- Article: [docs/article.md](docs/article.md): what Jev, Laya, NLI encoders and LLM guards are, how Maya differs, the v0.1 failure, the v0.2 fix, results and remaining failures, with screenshots.
 - Weights: [huggingface.co/VishalMysore/maya](https://huggingface.co/VishalMysore/maya) (PyTorch) and [huggingface.co/VishalMysore/mayaWasm](https://huggingface.co/VishalMysore/mayaWasm) (int8 ONNX for the browser, 600 MB). Maya v0.1 (ModernBERT-base, 150M) is kept under the `v0.1` tag of both repos.
 
 **It only ever answers yes or no.** Maya is a classifier with one output, P(yes); it cannot produce free text. An optional third answer, "not sure", appears only if you set abstention thresholds. It also cannot refuse: a question that is not yes/no ("what colour is it?") still gets a probability, so only ask yes/no questions.
