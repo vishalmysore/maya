@@ -15,4 +15,6 @@ language: [en]
 - Checked against PyTorch on 256 hand-labeled answers: 94.9% accuracy (PyTorch 95.3%), 1 answer flips, largest probability change 0.06. In the browser the JavaScript tokenizer gives the same token ids as Python on 33 test items and probabilities differ from PyTorch by at most 0.03.
 - The previous model (v0.1, 161 MB) is kept under the `v0.1` tag.
 
+**License note:** the base model's card says its versions without "-c" in the name were trained on data that includes non-commercially licensed datasets. Maya v0.2 inherits that; check the base model's card before commercial use (a commercially friendly alternative would be to repeat the recipe on `deberta-v3-large-zeroshot-v2.0-c`).
+
 Code, tests and evaluation: https://github.com/vishalmysore/maya. It still makes mistakes (about one in eight judgment answers); do not use it as the only safety check.

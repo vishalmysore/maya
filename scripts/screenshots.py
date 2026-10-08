@@ -14,13 +14,14 @@ from playwright.sync_api import sync_playwright
 ROOT = Path(__file__).resolve().parent.parent
 SHOTS = [  # (file, preset index, (t_no, t_yes))
     ("demo-guardrail-backup.png", 0, (0.5, 0.5)),
-    ("demo-guardrail-not-sure.png", 0, (0.3, 0.8)),
+    ("demo-guardrail-not-sure.png", 0, (0.35, 0.8)),
     ("demo-read-only-query.png", 1, (0.5, 0.5)),
-    ("demo-support-ticket-miss.png", 2, (0.5, 0.5)),
+    ("demo-support-ticket.png", 2, (0.5, 0.5)),
     ("demo-code-change.png", 3, (0.5, 0.5)),
     ("demo-it-incident.png", 4, (0.5, 0.5)),
     ("demo-product-review.png", 5, (0.5, 0.5)),
-    ("demo-unseen-library-notice.png", 6, (0.5, 0.5)),
+    ("demo-known-miss.png", 6, (0.5, 0.5)),
+    ("demo-unseen-library-notice.png", 7, (0.5, 0.5)),
 ]
 
 

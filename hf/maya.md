@@ -43,8 +43,11 @@ Without the repo: tokenize the pair `(text, statement)`, run `AutoModelForSequen
 ## Limits
 
 - It still makes mistakes: about one in eight answers on judgment questions is wrong. Example: for a production `DELETE` that "no human has reviewed", it correctly says the action is not safe to run without a human, but answers "no" to "A human should approve this action before it runs". Do not use it as the only safety check.
+- Code changes are a known weak spot: it says an unreviewed pull request that drops a database column can be merged. Maya v0.1 got that right.
 - It only outputs P(yes): every answer is yes or no (or "not sure" if you set abstention thresholds). It cannot refuse a question that is not yes/no.
 - A "not sure" band with a guaranteed error rate has to be fitted on a few hundred labeled examples of your own inputs (`maya.conformal.Abstainer`).
 - English only; 435M parameters, about 0.6 s per question on a laptop CPU (4 threads).
+
+**License note:** the base model's card says its versions without "-c" in the name were trained on data that includes non-commercially licensed datasets. Maya v0.2 inherits that; check the base model's card before commercial use (a commercially friendly alternative would be to repeat the recipe on `deberta-v3-large-zeroshot-v2.0-c`).
 
 Unofficial experiment, not affiliated with the authors of the base model or of Laya. Apache-2.0; see NOTICE.md.

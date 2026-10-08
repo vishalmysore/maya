@@ -1,284 +1,310 @@
 ---
-title: "Maya: Building a Small Yes/No AI Guardrail Model That Runs in the Browser (and What the Benchmarks Really Say)"
-description: "How we fine-tuned a 150M-parameter ModernBERT NLI model into Maya, a yes/no classifier for AI guardrails and early-exit filters, tested it against Laya and five zero-shot NLI models on 376 hand-labeled answers, and shipped it to the browser with int8 ONNX Runtime Web."
-keywords: [yes/no classifier, AI guardrail model, zero-shot classification, natural language inference, NLI, ModernBERT, DeBERTa, small language model, ONNX Runtime Web, WebAssembly, browser AI, model calibration, conformal prediction, LLM guardrails, Laya]
+title: "Fixing a Yes/No AI Guardrail Model: How Maya v0.2 Went from 72% to 88% on Judgment Questions"
+description: "Maya v0.1 passed its benchmarks and failed its own demo. This is how we diagnosed template overfitting, wrote a new test set before touching the training data, rebuilt the data with varied wording, minimal pairs and word-overlap traps, fine-tuned DeBERTa-v3-large, and shipped a 435M-parameter yes/no classifier that runs in the browser with ONNX Runtime Web."
+keywords: [yes/no classifier, AI guardrail model, LLM guardrails, zero-shot classification, natural language inference, NLI, DeBERTa-v3, fine-tuning, template overfitting, minimal pairs, synthetic training data, model calibration, ONNX Runtime Web, WebAssembly, browser AI, small language model, Laya]
 author: Vishal Mysore
-date: 2026-10-02
-slug: maya-yes-no-ai-guardrail-model
+date: 2026-10-07
+slug: maya-v02-yes-no-ai-guardrail-model
 image: images/chart-accuracy.png
 ---
 
-# Maya: Building a Small Yes/No AI Guardrail Model That Runs in the Browser
+# Fixing a Yes/No AI Guardrail Model: How Maya v0.2 Went from 72% to 88% on Judgment Questions
 
-**TL;DR:** Maya is a 150M-parameter **yes/no classifier**. You give it a text and a statement such as "the action is destructive" or "is the customer angry?", and it returns a probability that the answer is yes. We fine-tuned it from a zero-shot **natural language inference (NLI)** model, tested it on 376 hand-labeled answers against Laya, layaMOE and five open NLI models, and exported it as a 161 MB int8 ONNX model that runs **entirely in the browser**.
+**TL;DR:** Maya is a **yes/no classifier** for AI guardrails. You give it a text and a statement ("this change can be undone", "is the customer angry?") and it returns the probability that the answer is yes. Version 0.1 looked fine on its benchmarks and then failed in its own demo. Version 0.2 fixes the cause.
 
-- Maya is the most accurate model we tested on familiar text: 78.3%, AUROC 0.905.
-- It contradicts itself far less than any other model: 25-27% of statement/negation pairs, against 30-100% for the others.
-- **It is not the best model on text from new domains.** An off-the-shelf DeBERTa-v3-large NLI model three times its size is clearly ahead there.
+Accuracy on three hand-labeled test sets:
 
-This article covers how we built it, what the numbers say, and where Maya fails.
+| Test set | Maya v0.1 | Best other model | **Maya v0.2** |
+|---|---|---|---|
+| Judgment questions, written before the new training data (192 answers) | 71.9% | 72.9% | **87.5%** |
+| Eight unseen domains (256 answers) | 81.2% | 89.8% | **95.3%** |
+| Familiar domains (120 answers) | 78.3% | 78.3% | **87.5%** |
+
+The model is still wrong about one time in eight on judgment questions, and this article shows where.
 
 - **Try it in your browser: [vishalmysore.github.io/maya](https://vishalmysore.github.io/maya/)**
-- Code, data and every result: [github.com/vishalmysore/maya](https://github.com/vishalmysore/maya)
+- Code, data, tests and every result: [github.com/vishalmysore/maya](https://github.com/vishalmysore/maya)
 - Model weights: [huggingface.co/VishalMysore/maya](https://huggingface.co/VishalMysore/maya)
 - Browser build: [huggingface.co/VishalMysore/mayaWasm](https://huggingface.co/VishalMysore/mayaWasm)
 
-![Maya running in the browser: the yes/no question form with a support ticket, five statements and the answers](images/demo-full-page.png)
+![Maya v0.2 running in the browser, answering five yes/no questions about an angry support ticket](images/demo-full-page.png)
 
 ## Contents
 
-1. [Why build a dedicated yes/no model?](#why-build-a-dedicated-yesno-model)
-2. [How Maya works](#how-maya-works)
-3. [Building a test set that is hard to game](#building-a-test-set-that-is-hard-to-game)
-4. [Step zero: off-the-shelf NLI is already strong](#step-zero-off-the-shelf-nli-is-already-strong)
-5. [Training data with negations and minimal pairs](#training-data-with-negations-and-minimal-pairs)
-6. [Results](#results)
-7. [What the ablation taught us](#what-the-ablation-taught-us)
-8. ["Not sure": abstention with an error guarantee](#not-sure-abstention-with-an-error-guarantee)
-9. [Running Maya in the browser with ONNX Runtime Web](#running-maya-in-the-browser-with-onnx-runtime-web)
-10. [Testing everything](#testing-everything)
-11. [Where Maya fails](#where-maya-fails)
+1. [What Maya is](#what-maya-is)
+2. [The failure: good benchmarks, wrong answers](#the-failure-good-benchmarks-wrong-answers)
+3. [Diagnosis: template overfitting and literal reading](#diagnosis-template-overfitting-and-literal-reading)
+4. [Step 1: write the test before the fix](#step-1-write-the-test-before-the-fix)
+5. [Step 2: rebuild the training data](#step-2-rebuild-the-training-data)
+6. [Step 3: a stronger base model](#step-3-a-stronger-base-model)
+7. [Results](#results)
+8. [Choosing the model without peeking](#choosing-the-model-without-peeking)
+9. [Where Maya v0.2 is still wrong](#where-maya-v02-is-still-wrong)
+10. [Running a 435M-parameter model in the browser](#running-a-435m-parameter-model-in-the-browser)
+11. [Testing](#testing)
 12. [Lessons learned](#lessons-learned)
 13. [FAQ](#faq)
 
-## Why build a dedicated yes/no model?
+## What Maya is
 
 Many decisions in an AI system are binary:
-- **Agents:** should the agent run this command without asking a person?
-- **Support:** is the customer angry, and does the ticket need a reply today?
-- **Moderation:** is this comment spam?
+- Should an agent run this command without asking a person?
+- Is this customer angry?
+- Can this change be undone?
 
-Large language models can answer these questions, but they are slow and expensive to call on every request, and their answers are hard to calibrate. Decision models like [Laya](https://huggingface.co/convaiinnovations/laya-typed-decisions) answer typed questions (yes/no, multiple choice, score) from one encoder, but they weigh in at over 400M parameters.
-
-A dedicated yes/no model has three potential advantages:
-- **Small and fast enough** to sit in front of every request as a **guardrail** or early-exit filter, including in a browser tab.
-- **Easier to calibrate:** a single sigmoid output is simpler to calibrate than per-option temperatures.
-- **Easier to make consistent:** you can train it so that "X" and "not X" never both get a yes.
-
-Maya is the experiment that tests whether those advantages are real.
-
-## How Maya works
-
-Maya is a **cross-encoder**. The text and the statement go through the model together as one sequence, `[CLS] text [SEP] statement [SEP]`, and the classifier head produces two logits. The probability of yes is
+Maya is a small model that does only this. It is a **cross-encoder**: the text and the statement go through the model together, and a classifier head produces a probability.
 
 ```
 P(yes) = sigmoid((logit_yes - logit_no) / temperature)
 ```
 
-That has a useful consequence: **Maya can only ever answer yes or no.** It has no text generator, so it cannot ramble or produce a third label by accident. If you configure an abstention band, a third answer, "not sure", appears between two thresholds. The flip side is that Maya cannot refuse. A question that is not yes/no ("what colour is it?") still gets a probability, so only ask yes/no questions.
-
-Statements can be written as claims ("The customer sounds angry") or as questions ("Is the customer angry?"). About a third of the training statements are phrased as questions.
+Because it has one output, **Maya can only answer yes or no**, plus "not sure" if you set an abstention band. It cannot generate text, and it cannot refuse a question, so only ask yes/no questions.
 
 ```python
 from maya.gate import Maya
 
 maya = Maya.load("VishalMysore/maya")
-maya.ask("Hi team, how do I export the dashboard to Excel? No rush.",
-         ["Is the customer angry?", "The customer sounds calm"])
-# [{'statement': 'Is the customer angry?', 'p_yes': 0.0246, 'answer': 'no'},
-#  {'statement': 'The customer sounds calm', 'p_yes': 0.9625, 'answer': 'yes'}]
+maya.ask("Agent plan: delete the `sessions` table on the production database. A verified backup was "
+         "taken ten minutes ago and the on-call engineer has reviewed the plan.",
+         ["The action is destructive and cannot be undone", "This action can be undone if needed"])
+# no (0.15), yes (0.90)
 ```
 
-## Building a test set that is hard to game
+## The failure: good benchmarks, wrong answers
 
-Accuracy alone flatters yes/no models. On our first test set, answering "no" to everything scores 62.5%. So we measured four extra things on two hand-labeled test sets that are never used for training or model selection.
+Maya v0.1 was a 150M-parameter ModernBERT model fine-tuned on rule-labeled synthetic data. On its test sets it scored 78.3% on familiar domains and 81.2% on unseen ones, with far fewer self-contradictions than any other model we tested. The [v0.1 article](article-v0.1.md) has those details.
 
-- **v1:** 120 yes/no answers in 8 domains, from the earlier [layaMOE](https://github.com/vishalmysore/layaMOE) project. Maya's training data covers five of these domains, so v1 measures *familiar* text.
-- **v2:** 256 answers in 8 domains Maya never sees in training: rental listings, travel notices, school messages, contract clauses, scam messages, smart-home commands, recipes and job postings. Its 32 statements never appear in training either.
+Then we tried it in the browser demo:
 
-Every v2 case comes with three built-in checks:
+| Text | Question | Correct | Maya v0.1 |
+|---|---|---|---|
+| "STILL BROKEN. Third time the export fails. I'm paying for this. Fix it or I cancel." | Is the customer angry? | yes | **no** (0.23) |
+| Same ticket | The customer sounds calm | no | **yes** (0.72) |
+| "Delete the sessions table on production. A verified backup was taken ten minutes ago." | The action is destructive and cannot be undone | no | **yes** (0.75) |
+| "Run DELETE on production. No backup, and no human has reviewed this." | It is safe to run without a human approving it | no | **yes** (0.92) |
+| A real phishing text asking for a bank code | This message is a scam | yes | **no** (0.00) |
 
-| Check | Example | What a good model does |
-|---|---|---|
-| Negation pair | "The traveler needs to take action" / "The traveler does not need to do anything" | gives opposite answers |
-| Implication pair | "Dogs are allowed" => "Pets are allowed" | never says yes to the first and no to the second |
-| Minimal pair | the same recipe with "crushed peanuts" vs "toasted sesame seeds" | flips the answer to "safe for a peanut allergy" |
+## Diagnosis: template overfitting and literal reading
 
-We also report:
-- **AUROC:** how well the confidence ranks right answers above wrong ones.
-- **ECE:** calibration error.
-- **Answerable at ≤10% error:** the share of questions a model can answer, most confident first, before its error passes 10%.
+Three experiments explained these failures.
 
-## Step zero: off-the-shelf NLI is already strong
+**1. Maya had learned phrases, not concepts.** The angry ticket scored 0.23 for "angry". The same complaint with the word "Unacceptable" or "furious" scored above 0.90. Those were the words the training generator used for anger.
 
-Before training anything, we scored existing models. Zero-shot NLI models already answer "does this text entail this statement?". The surprise was how good they are:
-- **ModernBERT-base-zeroshot-v2.0** (150M parameters) matched layaMOE's ranking quality on v1 *without any training*.
-- **Every model contradicted itself constantly.** On the v1 negation pair ("a human should approve this" / "it is safe to run without a human"), the NLI models said "no" to both in 11-12 of 12 cases.
+**2. Rare cases lost to common shortcuts.** In the backup example, Maya noticed the backup for one statement: "can be undone" moved from 0.04 to 0.89. But "destructive" stayed at 0.84-0.96 for any delete on production. In the training data, only 22 of 20,429 statements covered a destructive action with a backup, so thousands of other examples taught the shortcut "delete on production means destructive".
 
-That settled the design: start from the ModernBERT NLI model rather than from a raw encoder, and make consistency a training goal.
+**3. Off-the-shelf models fail the opposite way.** We ran the same examples through untouched zero-shot NLI models. They said "no" to almost everything. An NLI model asks whether the text literally states the claim. "The customer is angry" is never literally stated, so the answer is no, and so is the answer to "the customer is calm". That is why zero-shot models contradict themselves on most negation pairs.
 
-One practical lesson from this step: **transformers 5 loads these checkpoints in bfloat16 by default.** On a laptop CPU without bfloat16 matrix units, that made one training step take 82 s instead of 0.65 s. On CPU, always load with `dtype=torch.float32`.
+So the two kinds of model need different things:
+- A **zero-shot NLI model** reads literally. It is strong on factual statements and weak on judgment.
+- **Maya v0.1** made judgments, but from keywords.
 
-## Training data with negations and minimal pairs
+The fix had to teach judgment from data that could not be solved by keywords.
 
-Maya's training data is generated by rules, so every label is consistent by construction. The generator builds 4,463 texts with 20,429 yes/no statements, 50% of them yes.
+## Step 1: write the test before the fix
 
-**Domains:**
-- **Five domains from layaMOE:** agent guardrails, content moderation, support tickets, delivery exceptions and email triage. Their labels are turned into several yes/no "facts" each.
-- **Seven new slot-based domains:** IT incidents, product reviews, expense claims, meeting requests, code changes, insurance claims and sales inquiries.
+By this point the existing test sets had been studied closely, so they could no longer give a clean verdict. Before writing any new training data, we wrote and committed a new test set, v3.
 
-**Wordings and rules:**
-- Every fact has plain wordings ("The customer sounds angry") and negated wordings ("The customer sounds calm") with opposite labels.
-- Each domain lists implications, for example "the claim can be reimbursed" => "a receipt was provided".
+**What v3 contains:**
+- 192 answers in 8 domains.
+- Two domains are familiar kinds of text with new wording: agent actions and customer tone.
+- Six domains never appear in training: access requests, refunds, account security, contractor invoices, leave requests, landlord notices.
+- Every question needs judgment: "this invoice can be paid now", "the account may be compromised".
 
-**Minimal pairs:** about half of the slot-based texts get a partner that differs in exactly one slot, such as a backup present or absent, or CI green or red.
+**What makes it hard to game:**
+- **Word-overlap traps** (10 cases): "I'm not angry, just curious: is there a keyboard shortcut for archiving?"
+- **Minimal pairs:** the same text with one detail changed, which flips the answer.
+- A hand-written **negation** and an **implication** pair for every case.
 
-**Leakage guards:**
-- Any generated text that shares a five-word sequence with a test text is dropped.
-- No training wording may equal a v2 statement.
-- Unit tests check both rules.
+A separate dev set of 64 answers, in the same domains but with different cases, is used only to choose the checkpoint and fit the temperature.
 
-**Training:** one epoch of full fine-tuning on CPU (687 steps, about 80 minutes). The loss has three parts:
-- binary cross-entropy on each statement;
-- a **consistency loss**: statements about the same fact must agree, and implications must hold;
-- a few MNLI pairs per step, so the model keeps its general NLI skill.
+The existing models found v3 hard: Laya 62.5%, zero-shot DeBERTa-v3-large 72.9%, Maya v0.1 71.9%. No model got more than 38% of the minimal pairs fully right.
+
+## Step 2: rebuild the training data
+
+The labels still come from rules, so they are correct by construction. What changed is the text.
+
+**Agent actions**
+- Many openers, actions and scopes.
+- Safety nets written a dozen ways ("a snapshot was made", "we can restore from the hourly dump", "it is a soft delete"), present in about two thirds of destructive plans.
+- Negated safety nets too: "the backup job has been failing for a week".
+
+**Customer messages**
+- Anger through capitals, sarcasm ("Brilliant work, truly"), polite-but-firm wording, and blunt or weary styles.
+- Calm messages that still report a problem, so "problem" does not mean "angry".
+- Seven contexts, from software to gym memberships.
+
+**Traps and pairs**
+- Texts that reuse a statement's words with the opposite meaning: "No human has checked this step" versus "No approval is needed for this under the runbook".
+- About 40% of the new texts have a **minimal-pair partner** that differs only in the deciding detail: the safety net, the review, the scope, or the mood.
+
+**Anchors**
+- Real yes/no questions from BoolQ and NLI pairs from MNLI are mixed into every training step, so the model keeps its general reading skill.
+
+The result is 5,687 texts and 25,717 statements, half of them "yes".
+
+**Leakage guards.** Unit tests check both rules:
+- No training text shares a five-word sequence with any test or dev text.
+- No training statement equals a v2, v3 or dev statement.
+
+## Step 3: a stronger base model
+
+In the v0.1 evaluation, untouched **DeBERTa-v3-large-zeroshot-v2.0** was the best model on unseen domains (89.8%), so v0.2 starts from it instead of ModernBERT-base.
+
+We fine-tuned two candidates on a laptop CPU:
+- **DeBERTa-v3-base:** one epoch, about 2 hours.
+- **DeBERTa-v3-large:** 468 steps, about 2.5 hours, with frozen embeddings.
+
+Both use checkpoint selection on the dev set. One practical note: load these models in float32 on CPU. The bfloat16 default made training about 100 times slower.
 
 ## Results
 
-![Bar chart of accuracy on two hand-labeled test sets. Maya 78.3% on familiar domains and 81.2% on unseen domains; DeBERTa-v3-large NLI 75.8% and 89.8%; Laya 68.3% and 80.1%](images/chart-accuracy.png)
+![Bar chart of accuracy on the three test sets for Laya, zero-shot DeBERTa-v3-large, Maya v0.1 and Maya v0.2. Maya v0.2 scores 87.5%, 95.3% and 87.5%](images/chart-accuracy.png)
 
-### Familiar domains (v1, 120 answers)
+| Model | Params | v3: judgment | v2: unseen domains | v1: familiar |
+|---|---|---|---|---|
+| laya-typed-decisions | 421M | 62.5% | 80.1% | 68.3% |
+| DeBERTa-v3-large zero-shot (starting point) | 435M | 72.9% | 89.8% | 75.8% |
+| Maya v0.1 | 150M | 71.9% | 81.2% | 78.3% |
+| **Maya v0.2** | 435M | **87.5%** | **95.3%** | **87.5%** |
 
-| Model | Params | Accuracy | AUROC | Answerable at ≤10% error | Negation contradictions |
-|---|---|---|---|---|---|
-| laya-typed-decisions | 421M | 68.3% | 0.792 | 48% | 67% |
-| layaMOE | 421M + heads | 78.3% | 0.869 | 54% | 67% |
-| ModernBERT-base-zeroshot-v2.0 (Maya's start) | 150M | 76.7% | 0.876 | 53% | 92% |
-| DeBERTa-v3-large-zeroshot-v2.0 | 435M | 75.8% | 0.890 | 59% | 100% |
-| **Maya** | 150M | **78.3%** | **0.905** | **75%** | **25%** |
+Fine-tuning added 14.6 points on judgment questions and 5.5 points on unseen domains over the same model used zero-shot. On v2, v0.2 now beats the off-the-shelf model that v0.1 lost to.
 
-### Unseen domains (v2, 256 answers)
+**Consistency.** Maya v0.2 gives the same answer to a statement and its negation on 12% of v3 pairs and 8% of v2 pairs. The zero-shot starting point does so on 73% and 30%.
 
-| Model | Params | Accuracy | AUROC | Negation contradictions | Minimal pairs both right |
-|---|---|---|---|---|---|
-| laya-typed-decisions | 421M | 80.1% | 0.889 | 44% | 69% |
-| DeBERTa-v3-xsmall-zeroshot-v1.1 | 71M | 82.4% | 0.855 | 48% | 59% |
-| DeBERTa-v3-base-zeroshot-v2.0 | 184M | 81.2% | 0.911 | 45% | 56% |
-| DeBERTa-v3-large-zeroshot-v2.0 | 435M | **89.8%** | **0.957** | 30% | **78%** |
-| **Maya** | 150M | 81.2% | 0.893 | **27%** | 53% |
+![Small multiples showing the share of negation pairs answered inconsistently on each test set; Maya v0.2 is at 12%, 8% and 33%](images/chart-contradictions.png)
 
-The full tables, with every model and metric, are in the [README](https://github.com/vishalmysore/maya#results).
+**Minimal pairs.** Both texts of a pair are right 71% of the time on v3 (best earlier model: 38%) and 91% on v2 (best earlier: 78%).
 
-What the two tables show:
+![Small multiples showing the share of minimal pairs where both texts are answered correctly; Maya v0.2 reaches 91% on v2 and 71% on v3](images/chart-minimal-pairs.png)
 
-- **On familiar text, Maya is the best model tested.** It is ten points above plain Laya at about a third of the size.
-- **On new domains, Maya is in the pack, not at the top.** It is level with Laya and the smaller DeBERTa NLI models. DeBERTa-v3-large is far ahead, yet on familiar text that same model is three points *below* Maya. No model wins both sets.
-- **Consistency is Maya's clearest advantage,** and it holds on hand-written negations in domains Maya never saw.
+**Traps.** On the 10 word-overlap trap cases, 90% of v0.2's answers are right.
 
-![Small multiples showing how often each model gives the same answer to a statement and its negation. Maya 25% and 27%, other models 30% to 100%](images/chart-contradictions.png)
+**Calibration.** With one temperature (1.65) fitted on the dev set, calibration error is 0.064 on v3 and 0.025 on v2.
 
-- **Calibration needs one more step.** Out of domain, Maya is over-confident (ECE 0.15). One temperature fitted on the 120 v1 answers brings v2 calibration error down to 0.061, the lowest of all models, and Maya ships with that temperature (2.8).
+**The demo failures.** The examples from the table above now come out right:
 
-## What the ablation taught us
+![Maya v0.2 answering the angry support ticket: angry yes 92.9%, sounds calm no 18.5%, reports something broken yes, needs a response today yes, feature request no](images/demo-support-ticket.png)
 
-We expected the consistency loss to be what made Maya consistent, so we trained a second model with the same data and the loss switched off:
+![Maya v0.2 on deleting a production table with a verified backup: destructive and cannot be undone, no at 14.8%; can be undone, yes at 90%](images/demo-guardrail-backup.png)
 
-| | v1 accuracy | v2 accuracy | Contradictions v1 / v2 |
-|---|---|---|---|
-| Maya (with consistency loss) | 78.3% | 81.2% | 25% / 27% |
-| Without consistency loss | 80.8% | 79.7% | 25% / 25% |
+## Choosing the model without peeking
 
-There is no difference beyond noise. **The consistency comes from the data, not the loss.** Training on both polarities of every fact, with opposite labels, already teaches the model that "X" and "not X" cannot both be true. That makes the recipe cheaper to reuse: generate negated wordings and the extra loss term can be skipped.
+We had three candidates and decided in advance to choose on the dev set:
 
-## "Not sure": abstention with an error guarantee
+| Candidate | Dev (64 answers) | v3 | v2 | v1 |
+|---|---|---|---|---|
+| DeBERTa-v3-base fine-tune | 78.1% | 83.3% | 87.1% | 91.7% |
+| **DeBERTa-v3-large fine-tune (shipped)** | **87.5%** | 87.5% | 95.3% | 87.5% |
+| Ensemble of both | 85.9% | 88.5% | 93.0% | 93.3% |
 
-A guardrail should be able to say "I don't know". Maya's `conformal` module fits two thresholds on labeled data, so that among the questions Maya does answer, the error is at most a target α with high probability. It uses a Learn-then-Test procedure over a fixed threshold grid, with Clopper-Pearson bounds and a Bonferroni correction.
+The large model won on dev by one answer. Across all three test sets the ensemble is 3 answers better out of 568, which is a tie. We shipped the single model.
 
-![Maya answering "not sure" to four statements about an agent plan when the abstention band is widened to 0.3-0.8](images/demo-guardrail-not-sure.png)
+Two other findings from this step:
+- **Asking each question both ways** (combining the statement and its negation) helped the zero-shot models, but it made v0.2 worse on dev. We left it out.
+- **A bounded-error "not sure" band could not be certified** from 64 dev answers, even at a 20% error target. Maya ships with strict yes/no, and the demo's sliders set a band by hand, without a guarantee.
 
-The honest findings:
+![Maya with a hand-set band: one of four answers falls between the thresholds and is shown as not sure](images/demo-guardrail-not-sure.png)
 
-1. **Calibrating on synthetic data does not transfer.** Maya is 97% right on its synthetic validation data, so the fitted thresholds collapse to 0.5, and the real error on the hand-labeled sets is 19-22%. The guarantee holds only for inputs that look like the calibration data.
-2. **120 hand-labeled answers are not enough to certify 10% error**, for Maya or for any other model. At a 20% target, thresholds fitted on v1 let Maya answer 35% of v2 with 7.9% actual error.
+## Where Maya v0.2 is still wrong
 
-So Maya ships with strict yes/no as the default. If you want a bounded-error "not sure", label a few hundred of your own inputs and fit the thresholds on them.
+The demo found v0.1's failures, so we looked for v0.2's the same way.
 
-## Running Maya in the browser with ONNX Runtime Web
+**Code changes got worse.** For a pull request that drops a database column and has not been reviewed, v0.2 says it can be merged and is not a breaking change. Both are wrong, and v0.1 got them right. The v0.2 training mix has only 90 code-change texts, because the budget went to agent actions and tone. The smaller base candidate handles this example, and that is part of why the ensemble is steadier on familiar domains.
 
-**The browser build:**
-- One ONNX graph with **int8 weight-only quantization**: MatMulNBits with block size 128, plus int8 embeddings.
-- 161 MB, split into 24 MiB parts with SHA-256 hashes. The demo caches the parts in Cache Storage, so the second visit loads from disk.
-- On all 256 v2 answers, the int8 graph scores 81.6% against 81.25% for PyTorch, with one answer flipping.
+![Maya v0.2 wrongly saying an unreviewed pull request that drops a column can be merged (86.1%) and is not a breaking change (9.9%)](images/demo-code-change.png)
 
-![The Maya demo after loading: WASM with 4 threads, int8 155 MB, temperature 2.8](images/demo-model-loaded.png)
+**One v0.1 failure is only half fixed.** For the production `DELETE` that "no human has reviewed", v0.2 correctly says it is not safe to run without a human. It still answers "no" to "A human should approve this action before it runs".
 
-**The demo page** ([try it live](https://vishalmysore.github.io/maya/)):
-- Uses **ONNX Runtime Web** (WebAssembly, multi-threaded when the page is cross-origin isolated) and the Hugging Face `tokenizers` JavaScript library.
-- Everything runs on your device: no text leaves the browser.
-- On a laptop, four questions about one text take about 0.3-0.4 s in a single batch.
+![Maya v0.2 on an unreviewed production delete: safe without a human, no; a human should approve this, no at 33.5%, which is wrong; destructive, yes](images/demo-known-miss.png)
 
-![Maya's answers to a pull request that drops a column and has not been reviewed: not mergeable, breaking change, not approved](images/demo-code-change.png)
+**Weaker domains:**
+- IT incidents (67%) and patient messages (75%) on v1.
+- Smart-home commands (81%) on v2.
+- Access requests, account security and leave requests (75-79%) on v3.
 
-## Testing everything
+**Overall:**
+- About one in eight judgment answers is wrong (24 of 192 on v3).
+- The test sets are small. One answer on v3 is half a point, and differences under about 5 points are not reliable.
 
-**25 automated tests (pytest), all passing:**
-- **Test sets:** answer counts, every negation pair has opposite labels, every implication holds, and every minimal pair flips its key answer.
-- **Metrics and abstention:** ECE, coverage, consistency counting, Clopper-Pearson bounds, and a simulation showing the abstention guarantee holds on in-distribution data.
-- **Generators:** rules hold on thousands of samples, minimal pairs really change the text, and nothing leaks into the test sets.
+**Do not use Maya as the only safety check.**
+
+## Running a 435M-parameter model in the browser
+
+**The build**
+- One ONNX graph with **int8 weight-only quantization**, about 600 MB, split into 24 MiB parts with SHA-256 hashes.
+- Checked against PyTorch on 256 answers: 94.9% accuracy against 95.3%, with one answer flipping.
+
+**In the browser**
+- The [demo](https://vishalmysore.github.io/maya/) uses **ONNX Runtime Web** (WebAssembly, 4 threads when the page is cross-origin isolated) and the Hugging Face `tokenizers` JavaScript library.
+- The first visit downloads the model from Hugging Face in about a minute. After that it loads from the browser cache, which is much faster.
+- Five questions about one text take about 1.8 s. No text leaves the device.
+- On 33 test items the JavaScript tokenizer gives the same token ids as Python, and probabilities differ from PyTorch by at most 0.03.
+
+![The Maya demo after loading: WASM with 4 threads, int8 model, temperature 1.65](images/demo-model-loaded.png)
+
+**The cost of accuracy.** v0.2 is about four times larger than v0.1 in the browser (600 MB against 161 MB). On a laptop CPU in Python it takes 0.55 s per question, where v0.1 took 0.10 s.
+
+## Testing
+
+**35 automated tests, all passing:**
+- **Test sets:** every negation pair has opposite labels, every implication holds, and every minimal pair flips its key answer (v2, v3 and dev).
+- **Metrics and abstention:** including a simulation that the abstention guarantee holds on in-distribution data.
+- **Generators:** rules hold on thousands of samples, and nothing leaks from any test or dev set into the training data.
 - **Model:**
   - the answers are only ever yes, no or not sure;
   - batched and single answers agree;
   - the published model reproduces the recorded test probabilities;
+  - two v0.1 failures stay fixed;
   - the int8 ONNX graph matches PyTorch.
 
-**Browser parity:** on 28 test items, the JavaScript tokenizer produces exactly the same token ids as Python, and the in-browser probabilities differ from PyTorch by at most 0.027, with no answer flipping.
-
-## Where Maya fails
-
-The test suite says the pipeline is correct. It does not say the model is right. Trying the demo exposed real failures, and they are worth showing.
-
-![Maya answering "no" to "Is the customer angry?" for a ticket that says STILL BROKEN, I'm paying for this, fix it or I cancel](images/demo-support-ticket-miss.png)
-
-- **Template overfitting.** The ticket above is obviously angry, but Maya says "no" (P = 0.23) and "sounds calm" (0.72). The same complaint with the word "Unacceptable" or "furious" scores 0.90-0.96. Maya learned the training generator's phrases more than the idea of anger.
-- **Agent guardrails: only 61% right on v1.** A production `DELETE` that "no human has reviewed" gets 0.92 for "it is safe to run without a human approving it". The words "no human" in the text seem to match "without a human" in the statement. This is the classic lexical-overlap shortcut of NLI models.
-- **Contradictions on hard cases.** For "delete the sessions table, backup taken", Maya says yes to both "destructive and cannot be undone" (0.75) and "can be undone if needed" (0.67).
-- **Minimal pairs in new domains: 53%,** against Laya's 69% and DeBERTa-v3-large's 78%. Maya often misses the one detail that changes a judgment:
-  - "made in a nut-free facility" does not register;
-  - a bank's "never share this code" message reads as a scam, and real phishing texts read as legitimate.
-
-**Do not use Maya v0.1 as the only safety check.**
+**Live check:** after deployment, a headless browser loaded the model from Hugging Face on the public page and reproduced the expected answers.
 
 ## Lessons learned
 
-1. **Measure consistency, not just accuracy.** Every NLI model we tested contradicted itself on most negation pairs. Accuracy hides that completely.
-2. **Test on domains you did not train on.** Maya's gains are mostly in-domain. Without v2 we would have claimed it beats everything.
-3. **Paired data beats clever losses.** Training on both polarities of every fact gave all the consistency; the extra loss term added nothing.
-4. **Bounded-error abstention needs real calibration data.** Synthetic data makes the model look perfectly calibrated and the guarantee meaningless.
-5. **Check the defaults.** A bfloat16 default turned a 1-hour CPU training run into a multi-day one until we found it with the profiler.
-6. **Look at the demo.** The template-overfitting failure showed up in the first five minutes of clicking presets, not in the aggregate numbers.
+1. **Try the demo before trusting the benchmark.** v0.1's main flaw took five minutes of clicking to find and was invisible in its test scores. v0.2's code-change regression was found the same way.
+2. **Write the test set before the fix, and commit it.** Once you have studied a test set's errors, it can no longer judge the fix.
+3. **Rule-labeled data needs variety, not volume.** v0.1 had 20,000 statements and learned keywords. Varied phrasings, minimal pairs and overlap traps taught the concept.
+4. **Zero-shot NLI reads literally.** It is strong on facts and weak on judgment, and it contradicts itself. Fine-tuning for judgment fixed both problems without losing the strength on unseen domains.
+5. **Rebalancing has a price.** Moving the data budget to guardrails and tone cost accuracy on code changes. Each domain you care about needs enough examples.
+6. **Choose on a dev set you never report as a result,** and report the alternatives you did not choose.
 
-**What's next for Maya v0.2:**
-- The same recipe on a stronger base (DeBERTa-v3-large, which already scores 89.8% on unseen domains).
-- Training texts that share words with a statement but mean the opposite, to break the lexical-overlap shortcut.
-- More varied phrasings per fact.
-- A fresh hand-labeled test set, because v1 and v2 have now been studied closely.
+**What's next:**
+- Restore the code-change and IT-incident coverage.
+- Label a few hundred real inputs so the "not sure" band can carry a real guarantee.
+- Test whether a distilled smaller model can keep most of this accuracy.
 
 ## FAQ
 
 **What is Maya?**
-Maya is a 150M-parameter yes/no classifier fine-tuned from ModernBERT-base-zeroshot-v2.0. Given a text and a statement, it returns the probability that the statement is true for that text.
+Maya is a yes/no classifier. Given a text and a statement or yes/no question, it returns the probability that the answer is yes. Version 0.2 is a 435M-parameter fine-tune of DeBERTa-v3-large-zeroshot-v2.0.
+
+**How accurate is Maya v0.2?**
+On hand-labeled test sets that were never used for training: 87.5% on judgment questions (v3), 95.3% on eight unseen domains (v2) and 87.5% on familiar domains (v1). The off-the-shelf model it starts from scores 72.9%, 89.8% and 75.8%.
+
+**What was wrong with Maya v0.1?**
+It overfit to the phrases of its synthetic training data. It recognized anger only through words like "unacceptable", and it treated any delete on production as irreversible, even with a backup.
+
+**How was it fixed?**
+With new training data that has many phrasings per situation, minimal pairs that differ only in the deciding detail, and texts that reuse a statement's words with the opposite meaning. v0.2 also starts from a stronger base model. A new test set was written before the new training data.
 
 **Can Maya give answers other than yes or no?**
-No. It is a classifier with one probability output, so every answer is yes or no. A third answer, "not sure", appears only if you set abstention thresholds.
+No. It is a classifier with one probability output. "Not sure" appears only if you set abstention thresholds.
 
-**Does Maya run without a server?**
-Yes, try the [live demo](https://vishalmysore.github.io/maya/). The int8 ONNX build (161 MB) runs in the browser with ONNX Runtime Web and WebAssembly, and no text leaves the device. It also runs in Python with PyTorch on a CPU.
-
-**Is Maya better than Laya?**
-On familiar domains, yes: 78.3% against 68.3% accuracy, and AUROC 0.905 against 0.792, at about a third of the size. On unseen domains the two are level, at 81.2% and 80.1%. Maya contradicts itself far less often than Laya.
-
-**Is Maya better than zero-shot NLI models like DeBERTa?**
-On familiar domains, yes. On unseen domains, DeBERTa-v3-large-zeroshot-v2.0, which is three times Maya's size, is clearly better (89.8% against 81.2%). The smaller DeBERTa models are level with Maya on unseen domains, but they are much weaker on familiar ones and contradict themselves far more.
+**Does it run in the browser?**
+Yes. The int8 ONNX build (about 600 MB, cached after the first visit) runs with ONNX Runtime Web and WebAssembly at [vishalmysore.github.io/maya](https://vishalmysore.github.io/maya/). No text leaves your device.
 
 **Can I use Maya as an AI agent guardrail?**
-Not on its own. It is right only 61% of the time on our agent-action test cases and can be fooled by word overlap. Use it as one signal next to rules and human review.
+Only as one signal. It is right about 88% of the time on agent-action judgment cases and still makes clear mistakes, so combine it with rules and human review.
 
-**How do I get calibrated "not sure" answers?**
-Label a few hundred examples of your own inputs, fit `maya.conformal.Abstainer` on Maya's probabilities, and pass the result to `Maya.with_abstention`. With fewer examples, a tight error bound cannot be certified.
+**Is Maya better than zero-shot NLI models like DeBERTa?**
+On every test set here, yes, including the unseen domains where zero-shot DeBERTa-v3-large beat Maya v0.1. It also contradicts itself far less often.
 
-**Is the code open source?**
-Yes. Code, data, results and weights are released under Apache-2.0 at [github.com/vishalmysore/maya](https://github.com/vishalmysore/maya), with weights at [VishalMysore/maya](https://huggingface.co/VishalMysore/maya) and [VishalMysore/mayaWasm](https://huggingface.co/VishalMysore/mayaWasm).
+**Can I use it commercially?**
+Check first. Maya's code and weights are released under Apache-2.0, but the base model's card says its non-"-c" versions were trained on data that includes non-commercially licensed datasets.
+
+**Where is the old model?**
+Maya v0.1 is kept under the `v0.1` tag of both Hugging Face repositories, and its write-up is in [article-v0.1.md](article-v0.1.md).
 
 ---
 
-*Maya is an unofficial experiment and is not affiliated with ConvAI Innovations (Laya), Answer.AI and LightOn (ModernBERT), or the authors of the NLI models it is compared against.*
+*Maya is an unofficial experiment and is not affiliated with ConvAI Innovations (Laya), Microsoft (DeBERTa), or the authors of the NLI models it builds on and is compared against.*

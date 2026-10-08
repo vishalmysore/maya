@@ -1,118 +1,126 @@
 # Maya
 
-**A dedicated yes/no gate.** Maya reads a text and a statement (or a yes/no question) and returns P(yes). It is a 150M-parameter cross-encoder fine-tuned from [ModernBERT-base-zeroshot-v2.0](https://huggingface.co/MoritzLaurer/ModernBERT-base-zeroshot-v2.0) on rule-labeled data where every fact appears in plain and negated wordings, meant to sit in front of heavier models as a guardrail or early-exit filter: "does this action need a human?", "is the customer upset?", "is this message a scam?".
+**A dedicated yes/no gate.** Maya reads a text and a statement (or a yes/no question) and returns P(yes). It is meant to sit in front of heavier models as a guardrail or early-exit filter: "can this change be undone?", "is the customer upset?", "is this message a scam?".
 
-- Weights: [huggingface.co/VishalMysore/maya](https://huggingface.co/VishalMysore/maya) (PyTorch) and [huggingface.co/VishalMysore/mayaWasm](https://huggingface.co/VishalMysore/mayaWasm) (int8 ONNX for the browser, 161 MB)
+Maya v0.2 is a 435M-parameter cross-encoder fine-tuned from [DeBERTa-v3-large-zeroshot-v2.0](https://huggingface.co/MoritzLaurer/deberta-v3-large-zeroshot-v2.0).
+
 - **Live demo (runs in your browser): https://vishalmysore.github.io/maya/**
-- Article: [docs/article.md](docs/article.md) (how it was built, results, failures, with screenshots)
-- Compared against [laya-typed-decisions](https://huggingface.co/convaiinnovations/laya-typed-decisions), [layaMOE](https://github.com/vishalmysore/layaMOE) and off-the-shelf zero-shot NLI models
+- Article: [docs/article.md](docs/article.md) (v0.2: what was wrong with v0.1, how it was fixed, results, remaining failures). The v0.1 article is [docs/article-v0.1.md](docs/article-v0.1.md).
+- Weights: [huggingface.co/VishalMysore/maya](https://huggingface.co/VishalMysore/maya) (PyTorch) and [huggingface.co/VishalMysore/mayaWasm](https://huggingface.co/VishalMysore/mayaWasm) (int8 ONNX for the browser, 600 MB). Maya v0.1 (ModernBERT-base, 150M) is kept under the `v0.1` tag of both repos.
 
-**It only ever answers yes or no.** Maya is a classifier with one output, P(yes); it cannot produce free text. An optional third answer, "not sure", appears only if you set abstention thresholds (see below). It also cannot refuse: a question that is not yes/no ("what colour is it?") still gets a probability, so only ask yes/no questions.
+**It only ever answers yes or no.** Maya is a classifier with one output, P(yes); it cannot produce free text. An optional third answer, "not sure", appears only if you set abstention thresholds. It also cannot refuse: a question that is not yes/no ("what colour is it?") still gets a probability, so only ask yes/no questions.
 
 ```python
 from maya.gate import Maya
 
 maya = Maya.load("VishalMysore/maya")
-maya.ask("Hi team, how do I export the dashboard to Excel? No rush.",
-         ["Is the customer angry?", "The customer sounds calm"])
-# [{'statement': 'Is the customer angry?', 'p_yes': 0.0246, 'answer': 'no'},
-#  {'statement': 'The customer sounds calm', 'p_yes': 0.9625, 'answer': 'yes'}]
+maya.ask("Agent plan: delete the `sessions` table on the production database. A verified backup was "
+         "taken ten minutes ago and the on-call engineer has reviewed the plan.",
+         ["The action is destructive and cannot be undone", "This action can be undone if needed"])
+# [{'statement': 'The action is destructive and cannot be undone', 'p_yes': 0.148, 'answer': 'no'},
+#  {'statement': 'This action can be undone if needed', 'p_yes': 0.9, 'answer': 'yes'}]
 ```
 
-Read the results below before using it as a safety gate: it is the strongest model tested on its own domains, but on unseen domains a 3x larger off-the-shelf NLI model is clearly better, and on agent-action guardrails Maya is right only 61% of the time (plain Laya 50%, layaMOE 69%).
+It still makes mistakes (about one in eight answers on judgment questions). Do not use it as the only safety check; see "Where it is still wrong".
 
 ## Results
 
-Two hand-labeled test sets, never used for training or model selection:
+Three hand-labeled test sets, never used for training or model selection, plus a small dev set used only to choose the checkpoint and fit the temperature:
 
-- **v1** (`data/eval`, from layaForWeb): 120 yes/no answers in 8 domains (45 yes). Maya's training data covers 5 of these domains, so v1 is mostly in-domain.
-- **v2** (`data/eval_v2`, written for Maya): 256 answers in 8 domains Maya never saw in training (rental listings, travel notices, school messages, contract clauses, scam messages, smart-home commands, recipes, job postings), 32 statements that never appear in training. Every case has a hand-written negation of its key statement, an implication pair (e.g. "dogs are allowed" => "pets are allowed") and a minimal-pair partner: the same text with one detail changed, which flips the key answer.
+- **v3** (`data/eval_v3`): 192 answers on *judgment* questions in 8 domains. Two are familiar kinds of text with new wording (agent actions, customer tone); six never appear in training (access requests, refunds, account security, contractor invoices, leave requests, landlord notices). Includes 10 word-overlap **trap** cases ("I'm not angry, just curious"). It was written and committed (`05dc39e`) before the v0.2 training data existed.
+- **v2** (`data/eval_v2`): 256 answers in 8 domains never used in training (rental listings, travel notices, school messages, contract clauses, scam messages, smart-home commands, recipes, job postings).
+- **v1** (`data/eval`, from layaForWeb): 120 answers in 8 domains, mostly familiar kinds of text.
+- **dev** (`data/dev`): 64 answers, same domains as v3 but different cases.
 
-### v1: mostly in-domain (120 answers)
+v2 and v3 cases come with a hand-written negation of the key statement, an implication pair, and a minimal-pair partner (the same text with one detail changed, which flips the key answer).
 
-| Model | Params | Accuracy | AUROC | ECE | Answerable at <=10% error | Negation contradictions (12 pairs) |
-|---|---|---|---|---|---|---|
-| always "no" | | 62.5% | 0.500 | 0.375 | 3% | 100% |
-| laya-typed-decisions | 421M | 68.3% | 0.792 | 0.107 | 48% | 67% |
-| layaMOE (prompted router) | 421M + heads | 78.3% | 0.869 | **0.082** | 54% | 67% |
-| cross-encoder/nli-deberta-v3-xsmall | 71M | 66.7% | 0.651 | 0.323 | 0% | 100% |
-| MoritzLaurer/deberta-v3-xsmall-zeroshot-v1.1-all-33 | 71M | 74.2% | 0.750 | 0.252 | 9% | 100% |
-| MoritzLaurer/deberta-v3-base-zeroshot-v2.0 | 184M | 70.8% | 0.821 | 0.270 | 33% | 92% |
-| MoritzLaurer/ModernBERT-base-zeroshot-v2.0 (Maya's starting point) | 150M | 76.7% | 0.876 | 0.223 | 53% | 92% |
-| MoritzLaurer/deberta-v3-large-zeroshot-v2.0 | 435M | 75.8% | 0.890 | 0.227 | 59% | 100% |
-| **Maya** | 150M | **78.3%** | **0.905** | 0.149 | **75%** | **25%** |
+![Accuracy of Laya, zero-shot DeBERTa-v3-large, Maya v0.1 and Maya v0.2 on the three test sets](docs/images/chart-accuracy.png)
 
-### v2: unseen domains (256 answers)
+### Accuracy
 
-| Model | Params | Accuracy | AUROC | ECE | Answerable at <=10% error | Negation contradictions | Implication violations | Minimal pairs both right |
-|---|---|---|---|---|---|---|---|---|
-| always "no" | | 50.8% | 0.500 | 0.492 | 0% | 100% | 0% | 0% |
-| laya-typed-decisions | 421M | 80.1% | 0.889 | 0.166 | 39% | 44% | 5% | 69% |
-| layaMOE (trained router) | 421M + heads | 78.5% | 0.840 | 0.160 | 9% | 44% | 8% | 66% |
-| cross-encoder/nli-deberta-v3-xsmall | 71M | 70.3% | 0.830 | 0.267 | 4% | 70% | 5% | 22% |
-| MoritzLaurer/deberta-v3-xsmall-zeroshot-v1.1-all-33 | 71M | 82.4% | 0.855 | 0.139 | 12% | 48% | **0%** | 59% |
-| MoritzLaurer/deberta-v3-base-zeroshot-v2.0 | 184M | 81.2% | 0.911 | 0.172 | 59% | 45% | 3% | 56% |
-| MoritzLaurer/ModernBERT-base-zeroshot-v2.0 (Maya's starting point) | 150M | 78.5% | 0.868 | 0.180 | 25% | 45% | 9% | 59% |
-| MoritzLaurer/deberta-v3-large-zeroshot-v2.0 | 435M | **89.8%** | **0.957** | 0.100 | **100%** | 30% | **0%** | **78%** |
-| **Maya** | 150M | 81.2% | 0.893 | 0.152 (**0.061** with temperature) | 71% | **27%** | 9% | 53% |
+| Model | Params | v3: judgment (192) | v2: unseen domains (256) | v1: familiar (120) |
+|---|---|---|---|---|
+| always "no" | | 43.2% | 50.8% | 62.5% |
+| laya-typed-decisions | 421M | 62.5% | 80.1% | 68.3% |
+| layaMOE | 421M + heads | 63.5% | 78.5% | 78.3% |
+| ModernBERT-base-zeroshot-v2.0 | 150M | 66.7% | 78.5% | 76.7% |
+| DeBERTa-v3-base-zeroshot-v2.0 | 184M | 66.7% | 81.2% | 70.8% |
+| DeBERTa-v3-large-zeroshot-v2.0 (Maya v0.2's starting point) | 435M | 72.9% | 89.8% | 75.8% |
+| Maya v0.1 | 150M | 71.9% | 81.2% | 78.3% |
+| **Maya v0.2** | 435M | **87.5%** | **95.3%** | **87.5%** |
 
-All rows are PyTorch fp32. Laya and layaMOE answers were recorded with layaMOE's own code (`results/laya_moe_eval_reference.json`, `results/laya_v2_reference.json`).
+### Maya v0.2 in detail
 
-Column notes:
+| | v3 | v2 | v1 |
+|---|---|---|---|
+| Accuracy | 87.5% | 95.3% | 87.5% |
+| AUROC | 0.933 | 0.988 | 0.971 |
+| Calibration error (ECE), with the shipped temperature 1.65 | 0.064 | 0.025 | 0.110 |
+| Answerable at <=10% error (upper bound) | 95% | 100% | 88% |
+| Statement and its negation get the same answer | 12% | 8% | 33% (4 of 12) |
+| Implication violated | 6% | 2% | |
+| Minimal pairs: both texts right | 71% | 91% | |
+| Answers on the word-overlap trap cases | 90% | | |
 
-- *Answerable at <=10% error*: the largest share of answers, most confident first, whose error stays at or below 10%. It is fitted on the same answers it is measured on, so it is an upper bound that compares how well each model's confidence separates right from wrong; it is not a deployable guarantee (see "Abstention" below).
-- *Negation contradictions*: the text gets the same answer for a statement and its negation ("The traveler needs to take action" / "The traveler does not need to do anything"). On v1 the one negation pair is "a human should approve this" / "it is safe to run without a human".
-- *Minimal pairs both right*: both texts of a pair answered correctly on the key statement.
-- ECE "with temperature": temperature 2.8 fitted on v1 (`maya_config.json` ships it). It does not change accuracy or AUROC.
+For comparison, the zero-shot starting point contradicts itself on 73% of v3 negation pairs, 30% on v2 and 100% on v1, and gets both texts of a minimal pair right 33% (v3) and 78% (v2) of the time.
 
-### What this shows
+![Share of negation pairs answered inconsistently](docs/images/chart-contradictions.png)
 
-- **In-domain (v1), Maya is the best model tested**: best accuracy (tied with layaMOE), best AUROC (0.905), and the most answers it can give before its error passes 10% (75%), at about a third of Laya's size. Plain Laya is 10 points lower.
-- **On unseen domains (v2), Maya is not the best.** An off-the-shelf model three times its size, deberta-v3-large-zeroshot-v2.0, is far ahead (89.8% accuracy, AUROC 0.957, 78% of minimal pairs). Maya is level with Laya, deberta-v3-base and the 71M deberta-v3-xsmall (81-82%). Fine-tuning ModernBERT on Maya's domains moved it from 78.5% to 81.2% on v2 (7 answers, about the noise level), so the gains are mostly in-domain. The same deberta-large model is only 75.8% on v1, so no model wins both sets.
-- **Consistency is Maya's clearest win.** Contradictions between a statement and its negation are 25% on v1 (every NLI model: 92-100%, Laya 67%) and 27% on v2 (others 30-70%). It carries over to hand-written negations in domains Maya has never seen. The ablation below shows this comes from the training data (each fact in plain and negated wordings with opposite labels), not from the extra consistency loss.
-- **Calibration needs a temperature.** Maya is over-confident out of domain (ECE 0.15). A single temperature fitted on the 120 v1 answers brings v2 ECE to 0.061, the lowest of all models. Fitted on the synthetic validation split it stays at 1.0 (Maya is right 97% of the time there), so the calibration data has to look like real inputs.
-- **Weak spot: agent guardrails (61% on v1).** Example: "run `DELETE FROM customers ...` on the production database. No backup has been taken and no human has reviewed this command" gets 0.92 for "It is safe to run this action without a human approving it first". The words "no human" in the text seem to match "without a human" in the statement (the classic lexical-overlap shortcut of NLI models), and the training texts phrase the missing review differently ("nobody has reviewed the command"). Do not use Maya alone as an agent guardrail.
-- **Weak spot: minimal pairs.** Maya gets both texts of a pair right 53% of the time (its starting point 59%, Laya 69%, deberta-v3-large 78%). Fine-tuning made Maya more consistent but no better at noticing the single detail that flips a judgment in a new domain. Typical misses: it calls a bank's "never share this code" message a scam and the real phishing texts legitimate; any mention of smoke detectors or a pool gate reads as a safety risk; "made in a nut-free facility" does not register. 32 pairs is a small sample, but the direction is clear.
-- **Next:** the same recipe on a stronger base (deberta-v3-large-zeroshot-v2.0, or deberta-v3-base for speed) and HANS-style training texts that share words with a statement but mean the opposite. Both should be measured on a fresh test set, since v1 and v2 have now been studied closely.
+Notes:
+
+- *Answerable at <=10% error* is the largest share of answers, most confident first, whose error stays at or below 10%. It is fitted on the same answers it is measured on, so it only shows how well confidence separates right from wrong.
+- All numbers are PyTorch fp32 at a threshold of 0.5. Laya and layaMOE answers were recorded with layaMOE's own code (`results/laya_*_reference.json`).
+- The test sets are small: on v3 one answer is 0.5 points, and differences of under about 5 points between models are not reliable.
+
+### How the checkpoint was chosen
+
+Three v0.2 candidates were trained or assembled; the choice was made on the dev set, not on the test sets:
+
+| Candidate | Dev (64) | v3 | v2 | v1 |
+|---|---|---|---|---|
+| DeBERTa-v3-base fine-tune (184M) | 78.1% | 83.3% | 87.1% | 91.7% |
+| **DeBERTa-v3-large fine-tune (435M), shipped** | **87.5%** | 87.5% | 95.3% | 87.5% |
+| Ensemble of the two (average of logits) | 85.9% | 88.5% | 93.0% | 93.3% |
+
+The large model won on dev by one answer over the ensemble. On the three test sets together the ensemble is 3 answers better out of 568 (91.5% vs 91.0%): a tie. The single model was shipped; the ensemble is steadier on familiar domains (see below), at the cost of running two models.
+
+Asking every question both ways (p = (p(X) + 1 - p(not X)) / 2) helped the zero-shot models but made v0.2 worse on dev (88% -> 75% on key statements), so it is not used.
+
+### Where it is still wrong
+
+- **Code changes.** For "Pull request: migration that drops the `legacy_status` column from `orders`. CI is green. Nobody has reviewed it yet." v0.2 says it can be merged (0.86) and is not a breaking change (0.10). Both are wrong; v0.1 and the base candidate get them right. v0.2's training mix has only 90 code-change texts (v0.1 had 300), and the chosen checkpoint is from step 234.
+- **IT incidents and patient messages** on v1 (67% and 75%), smart-home commands on v2 (81%), access requests, account security and leave requests on v3 (75-79%).
+- **One of the v0.1 failures is only half fixed.** For a production `DELETE` that "no human has reviewed", v0.2 now correctly says it is not safe to run without a human (0.10), but still answers "no" (0.32) to "A human should approve this action before it runs".
+- **About one in eight judgment answers is wrong** (24 of 192 on v3), and 29% of v3 minimal pairs have at least one text wrong.
+
+### What changed from v0.1
+
+v0.1 (ModernBERT-base, 150M) scored 78.3% / 81.2% on v1 / v2 but failed in the demo: an obviously angry ticket ("STILL BROKEN ... fix it or I cancel") read as calm, and a delete with a verified backup read as irreversible. It had learned its training generator's phrases. v0.2 changes two things:
+
+1. **Training data** (`scripts/gen_train_data_v2.py`, 5,687 texts, 25,717 statements). Agent actions and customer messages are generated with many phrasings per situation (`gen/guardrails_v2.py`, `gen/tone_v2.py`): safety nets described a dozen ways and present in about two thirds of the destructive plans (v0.1: 22 statements out of 20,429), anger through capitals, sarcasm, polite-but-firm and blunt styles, calm messages that still report problems, and word-overlap traps ("No human has checked this step" vs "No human approval is needed"). About 40% of those texts have a minimal-pair partner that differs only in the deciding detail. A smaller share of the v0.1 domains is kept, and real yes/no questions (BoolQ) and MNLI pairs are mixed in so the model keeps its general skill.
+2. **Base model.** DeBERTa-v3-large-zeroshot-v2.0 was the strongest off-the-shelf model on unseen domains. Zero-shot NLI models read literally (they say "no" to "the customer is angry" unless the text says so), which is why they contradict themselves; fine-tuning teaches the judgment reading.
+
+No training text shares a word 5-gram with any test or dev text, and no training statement equals a v2, v3 or dev statement (checked by unit tests).
 
 ### Abstention ("not sure")
 
-`maya/conformal.py` fits two thresholds on labeled calibration data (yes if p >= t_yes, no if p <= t_no, otherwise "not sure") so that the error among answered questions is at most alpha with probability 1 - delta (Learn-then-Test over a fixed threshold grid, Clopper-Pearson bounds, Bonferroni). Findings:
-
-- **Calibrating on synthetic data does not transfer.** Maya is 97% right on the synthetic validation split, so the fitted thresholds collapse to 0.5 and the real error on v1/v2 is 19-22%. The guarantee only holds for inputs like the calibration data.
-- **120-128 hand-labeled answers are too few to certify 10% error** (alpha = 0.10, delta = 0.10) for any model tested. At alpha = 0.20, thresholds fitted on v1 let Maya answer 35% of v2 with 7.9% actual error (the starting NLI model: 14% at 5.7%).
-- So the shipped default is strict yes/no (both thresholds 0.5). To get a bounded-error "not sure", label a few hundred of your own inputs and fit `Abstainer` on them.
-
-### Ablation: is the consistency loss needed?
-
-Same data, same settings, consistency weight 0 (`checkpoints/maya-noconsist`, `results/eval_maya-noconsist.json`):
-
-| | v1 acc | v1 AUROC | v2 acc | v2 AUROC | Negation contradictions v1 / v2 | Implication violations v2 | Minimal pairs v2 |
-|---|---|---|---|---|---|---|---|
-| Maya (consistency loss 1.0) | 78.3% | 0.905 | 81.2% | 0.893 | 25% / 27% | 9% | 53% |
-| without consistency loss | 80.8% | 0.921 | 79.7% | 0.891 | 25% / 25% | 8% | 50% |
-
-No difference beyond noise, and the small differences point opposite ways on v1 and v2. Training on both polarities of every fact is what removes the contradictions; the explicit loss term (which also enforces implications) adds nothing measurable here. The released model is the one trained with the loss, since it was planned as the main run before the ablation was seen.
+`maya/conformal.py` fits two thresholds on labeled calibration data (yes if p >= t_yes, no if p <= t_no, otherwise "not sure") so that the error among answered questions is at most alpha with probability 1 - delta (Learn-then-Test over a fixed threshold grid, Clopper-Pearson bounds, Bonferroni). The 64 dev answers are too few to certify even a 20% bound for any model, and calibrating on synthetic data does not transfer (v0.1: thresholds collapse to 0.5 while real error is about 20%). So the shipped default is strict yes/no. To get a bounded-error "not sure", label a few hundred of your own inputs and fit `Abstainer` on them; the demo's sliders set a band by hand, without a guarantee.
 
 ### Latency
 
-CPU, PyTorch fp32, 4 threads, median of 15 requests (`scripts/bench_latency.py`, `results/latency.json`):
+CPU, PyTorch fp32, 4 threads, median of 15 requests (`scripts/bench_latency.py`):
 
 | Model | Params | 1 question | 5 questions | 20 questions |
 |---|---|---|---|---|
-| Maya | 150M | 169 ms | 666 ms | 2.6 s |
-| deberta-v3-large-zeroshot-v2.0 | 435M | 1,088 ms | 2.6 s | 8.2 s |
-| deberta-v3-xsmall-zeroshot-v1.1 | 71M | 120 ms | 247 ms | 787 ms |
+| Maya v0.2 | 435M | 0.55 s | 1.3 s | 4.4 s |
+| v0.2 base candidate | 184M | 0.17 s | 0.42 s | 1.4 s |
+| Maya v0.1 | 150M | 0.10 s | 0.43 s | 1.4 s |
 
-Maya is a cross-encoder: every (text, question) pair is one more sequence through the model, so cost grows with the number of questions. For reference, layaMOE measured about 0.9 s per case (all questions of a case in one encoder pass, 2 threads, a different setup), so Maya is faster for a few questions and slower for many. Encoding the text once and answering many questions with a small head on the cached states is the planned next step.
-
-### Browser build
-
-`scripts/export_onnx.py` exports the model as one ONNX graph with int8 weight-only quantization (MatMulNBits block 128, int8 embeddings): 161 MB, weights split into 24 MiB parts with SHA-256 hashes. On all 256 v2 answers the int8 graph scores 81.6% (PyTorch 81.25%), with one answer flipping and a largest probability change of 0.12.
+Maya is a cross-encoder: every (text, question) pair is one more sequence through the model. v0.2 trades speed and size for accuracy.
 
 ## Browser demo
 
-Live at https://vishalmysore.github.io/maya/ (deployed by `.github/workflows/pages.yml` on every push to `web/`). `web/` is a single page that runs the int8 build with ONNX Runtime Web (WASM, multi-threaded when cross-origin isolated), loading the model from Hugging Face (VishalMysore/mayaWasm) and caching the weight parts in the browser:
+Live at https://vishalmysore.github.io/maya/ (deployed by `.github/workflows/pages.yml`). `web/` is a single page that runs the int8 build with ONNX Runtime Web (WASM, multi-threaded when cross-origin isolated), loading the model from Hugging Face (VishalMysore/mayaWasm, 600 MB on the first visit, then cached in the browser).
 
 ```
 npm install
@@ -121,52 +129,37 @@ node scripts/prepare_site.mjs --local-model build/web  # or bundle a local build
 python serve.py 8791                                   # http://localhost:8791 with COOP/COEP headers
 ```
 
-On 28 eval items the browser's JavaScript tokenizer gives exactly the Python token ids and the in-browser probabilities differ from PyTorch by at most 0.027 (`results/browser_parity.json`). `scripts/screenshots.py` (Playwright, headless Edge) re-runs that check and captures the screenshots in `docs/images/`.
+`scripts/export_onnx.py` exports one ONNX graph with int8 weight-only quantization (MatMulNBits block 128, int8 embeddings), split into 24 MiB parts with SHA-256 hashes. On all 256 v2 answers the int8 graph scores 94.9% (PyTorch 95.3%) with one answer flipping. In the browser, the JavaScript tokenizer gives exactly the Python token ids on 33 test items and probabilities differ from PyTorch by at most 0.03 (`results/browser_parity.json`).
 
 ![Maya demo answering questions about a support ticket](docs/images/demo-full-page.png)
 
 ## Tests
 
 ```
-pytest            # 25 tests, about 15 s with the model on disk
+pytest            # 35 tests, about 90 s with the model on disk
 ```
 
-Eval-set integrity (negation, implication and minimal-pair labels), metrics, the abstention guarantee on simulated data, generator rules and leakage, and the model itself: answers are only yes / no / not sure, batched equals single, the model reproduces the recorded eval probabilities, int8 ONNX matches PyTorch.
+Test-set integrity (negation, implication and minimal-pair labels on v2, v3 and dev), metrics, the abstention guarantee on simulated data, generator rules, no leakage from any test or dev set into the training data, and the model itself: answers are only yes / no / not sure, batched equals single, the model reproduces the recorded test probabilities, two v0.1 failures stay fixed, int8 ONNX matches PyTorch.
 
-## How it was trained
+## Reproduce
 
-`scripts/gen_train_data.py` builds 4,463 rule-labeled texts with 20,429 yes/no statements (50% yes, about a third phrased as questions):
-
-- the five layaMOE domains (agent guardrails, content moderation, support tickets, delivery exceptions, email triage), with their labels turned into several yes/no facts each (`gen/facts.py`);
-- seven slot-based domains (IT incidents, product reviews, expense claims, meeting requests, code changes, insurance claims, sales inquiries; `gen/new_domains.py`). About half of their texts get a minimal-pair partner that differs in one slot.
-
-Every fact has plain wordings and negated wordings, and each domain lists implications between facts (e.g. "the claim can be reimbursed" => "a receipt was provided"). Texts sharing a word 5-gram with any eval text are dropped, and no training wording may equal a v2 statement.
-
-`scripts/train.py` fine-tunes the whole model for one epoch (687 steps, lr 2e-5, CPU, about 80 minutes) with:
-
-- binary cross-entropy on each statement (P(yes) = sigmoid(logit_entailment - logit_not_entailment));
-- a consistency loss: statements about the same fact on the same text must agree after polarity ((t_i - t_j)^2), and implications must hold (relu(t_A - t_B)) (the ablation shows it adds little on top of the paired data);
-- 4 MNLI pairs per step so the model keeps its general NLI ability.
-
-The checkpoint is chosen on the synthetic validation split only.
-
-## Run it
-
-Python 3.12, CPU is enough.
+Python 3.12, CPU is enough (v0.2 trained in about 2.5 hours on a laptop).
 
 ```
 python -m venv .venv
 .venv\Scripts\activate
 pip install -r requirements.txt
 
-python scripts/eval_baselines.py                          # baselines on v1 and v2 -> results/baselines.json
-python scripts/gen_train_data.py                          # data/train/{train,val}.jsonl
-python scripts/train.py --out checkpoints/maya            # ~80 min on a laptop CPU
-python scripts/eval_maya.py checkpoints/maya --name maya  # v1/v2, calibration, abstention -> results/eval_maya.json
-python scripts/export_onnx.py checkpoints/maya            # int8 browser build -> build/web
+python scripts/eval_baselines.py                          # zero-shot NLI, Laya references -> results/baselines.json
+python scripts/gen_train_data_v2.py                       # data/train_v2/{train,val}.jsonl
+python scripts/train.py --base MoritzLaurer/deberta-v3-large-zeroshot-v2.0 --data data/train_v2 ^
+    --epochs 0.35 --lr 1e-5 --texts-per-step 4 --boolq-per-step 1 --mnli-per-step 1 --max-length 128 ^
+    --freeze-embeddings --select dev --eval-every 117 --val-texts 60 --out checkpoints/maya-v2-large
+python scripts/eval_maya.py checkpoints/maya-v2-large --name maya-v2-large
+python scripts/export_onnx.py checkpoints/maya-v2-large   # int8 browser build -> build/web
 ```
 
-Load models in float32 on CPU: transformers 5 keeps these checkpoints in bfloat16 by default, which made training on a laptop CPU about 100x slower.
+Load models in float32 on CPU: transformers 5 keeps these checkpoints in bfloat16 by default, which made training on a laptop CPU about 100x slower. Long runs are best started detached (`scripts/train_v2_large.cmd`).
 
 ## Layout
 
@@ -174,17 +167,19 @@ Load models in float32 on CPU: transformers 5 keeps these checkpoints in bfloat1
 |---|---|
 | `maya/gate.py` | `Maya.load(...).ask(text, statements)`: yes / no / not sure |
 | `maya/conformal.py` | abstention thresholds with a bounded error rate, temperature fitting |
-| `maya/metrics.py` | accuracy, AUROC, ECE, coverage at a fixed error, negation / implication / minimal-pair consistency |
-| `maya/data.py`, `maya/nli.py` | eval loading, scoring any NLI-style model |
-| `gen/` | training data generators (layaMOE domains + seven slot-based domains) |
-| `scripts/` | data generation, training, evaluation, latency, ONNX export, Hugging Face upload |
-| `data/eval/`, `data/eval_v2/` | hand-labeled test sets (v1 from layaForWeb, v2 written for Maya) |
+| `maya/metrics.py` | accuracy, AUROC, ECE, coverage at a fixed error, negation / implication / minimal-pair / trap metrics |
+| `maya/data.py`, `maya/nli.py` | test-set loading, scoring any NLI-style model |
+| `gen/` | training data generators (v0.2: `guardrails_v2.py`, `tone_v2.py`; v0.1: `facts.py`, `new_domains.py`, `laya_domains.py`) |
+| `scripts/` | data generation, training, evaluation, ensembles, latency, ONNX export, Hugging Face upload, screenshots, charts |
+| `data/eval/`, `data/eval_v2/`, `data/eval_v3/`, `data/dev/` | hand-labeled test sets and the dev set |
 | `results/` | every probability and summary behind the tables above |
 | `web/`, `scripts/prepare_site.mjs`, `serve.py` | the browser demo |
 | `tests/` | pytest suite |
-| `docs/` | article and screenshots (`scripts/screenshots.py`, `scripts/make_charts.py`) |
+| `docs/` | articles and screenshots |
 | `hf/` | model cards for the two Hugging Face repos |
 
-Not in git: `checkpoints/`, `build/` (on Hugging Face), `data/train/` (regenerate with `scripts/gen_train_data.py`).
+Not in git: `checkpoints/`, `build/` (on Hugging Face), `data/train*/` (regenerate with the scripts).
+
+**License note:** the base model's card says its versions without "-c" in the name were trained on data that includes non-commercially licensed datasets. Maya v0.2 inherits that; check the base model's card before commercial use (a commercially friendly alternative would be to repeat the recipe on `deberta-v3-large-zeroshot-v2.0-c`).
 
 See `NOTICE.md` for third-party models and data.

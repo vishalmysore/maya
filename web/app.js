@@ -7,8 +7,8 @@ const $ = (id) => document.getElementById(id);
 let BASE = DEFAULT_BASE;
 let maya = null;
 
-// Examples written for the demo (not taken from the test sets). Each pairs a statement with its negation
-// so you can see whether the two answers agree.
+// Examples written for the demo. Most pair a statement with its negation so you can see whether the two
+// answers agree. "Known miss" is a case Maya v0.2 still gets partly wrong (second statement should be yes).
 const PRESETS = [
   { name: "Agent plan: delete production data, backup taken",
     text: "Agent plan: delete the `sessions` table on the production database. A verified backup was taken ten minutes ago and the on-call engineer has reviewed the plan.",
@@ -34,6 +34,10 @@ const PRESETS = [
     text: "4/5. The kettle boils fast and looks great, but the lid hinge feels a bit flimsy. Still, I'd buy it again.",
     statements: ["The reviewer would recommend this product", "The reviewer advises against buying it", "Was the item sent back?",
       "Is the overall tone of the review favourable?"] },
+  { name: "Known miss: unreviewed production delete",
+    text: "Agent plan: run `DELETE FROM customers WHERE last_login < '2020-01-01'` on the production database. No backup has been taken and no human has reviewed this command.",
+    statements: ["It is safe to run this action without a human approving it first", "A human should approve this action before it runs",
+      "The action is destructive and cannot be undone"] },
   { name: "Unseen domain: library notice",
     text: "Your reserved book 'Project Hail Mary' is ready for pickup at the North Branch. It will be held for 7 days.",
     statements: ["The reader needs to do something", "No action is needed from the reader", "Is this message a scam?"] },

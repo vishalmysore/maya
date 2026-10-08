@@ -2,171 +2,188 @@
  "demo-guardrail-backup.png": [
   [
    "The action is destructive and cannot be undone",
-   0.754,
-   "yes"
+   0.148,
+   "no"
   ],
   [
    "This action can be undone if needed",
-   0.673,
+   0.9,
    "yes"
   ],
   [
    "Does a person need to approve this first?",
-   0.623,
+   0.683,
    "yes"
   ],
   [
    "Is this a high-risk action?",
-   0.525,
-   "yes"
+   0.308,
+   "no"
   ]
  ],
  "demo-guardrail-not-sure.png": [
   [
    "The action is destructive and cannot be undone",
-   0.754,
-   "not sure"
+   0.148,
+   "no"
   ],
   [
    "This action can be undone if needed",
-   0.673,
-   "not sure"
+   0.9,
+   "yes"
   ],
   [
    "Does a person need to approve this first?",
-   0.623,
+   0.683,
    "not sure"
   ],
   [
    "Is this a high-risk action?",
-   0.525,
-   "not sure"
+   0.308,
+   "no"
   ]
  ],
  "demo-read-only-query.png": [
   [
    "The action is destructive and cannot be undone",
-   0.096,
+   0.01,
    "no"
   ],
   [
    "Can the agent do this without asking anyone?",
-   0.539,
+   0.907,
    "yes"
   ],
   [
    "A human should approve this action before it runs",
-   0.275,
+   0.012,
    "no"
   ]
  ],
- "demo-support-ticket-miss.png": [
+ "demo-support-ticket.png": [
   [
    "Is the customer angry?",
-   0.228,
-   "no"
-  ],
-  [
-   "The customer sounds calm",
-   0.715,
+   0.929,
    "yes"
   ],
   [
+   "The customer sounds calm",
+   0.185,
+   "no"
+  ],
+  [
    "The customer reports that something is broken",
-   0.842,
+   0.996,
    "yes"
   ],
   [
    "This ticket needs a response today",
-   0.956,
+   0.964,
    "yes"
   ],
   [
    "Is this a feature request?",
-   0.017,
+   0.003,
    "no"
   ]
  ],
  "demo-code-change.png": [
   [
    "Can this be merged now?",
-   0.123,
-   "no"
+   0.861,
+   "yes"
   ],
   [
    "This pull request should not be merged yet",
-   0.901,
-   "yes"
+   0.284,
+   "no"
   ],
   [
    "Is this a breaking change?",
-   0.856,
-   "yes"
+   0.099,
+   "no"
   ],
   [
    "Has someone approved this pull request?",
-   0.122,
+   0.052,
    "no"
   ]
  ],
  "demo-it-incident.png": [
   [
    "Customers are affected right now",
-   0.08,
+   0.029,
    "no"
   ],
   [
    "No customers are affected right now",
-   0.869,
+   0.793,
    "yes"
   ],
   [
    "The incident has been resolved",
-   0.978,
+   0.996,
    "yes"
   ],
   [
    "This needs an immediate page",
-   0.044,
+   0.007,
    "no"
   ]
  ],
  "demo-product-review.png": [
   [
    "The reviewer would recommend this product",
-   0.893,
+   0.938,
    "yes"
   ],
   [
    "The reviewer advises against buying it",
-   0.078,
+   0.006,
    "no"
   ],
   [
    "Was the item sent back?",
-   0.058,
+   0.06,
    "no"
   ],
   [
    "Is the overall tone of the review favourable?",
-   0.879,
+   0.864,
+   "yes"
+  ]
+ ],
+ "demo-known-miss.png": [
+  [
+   "It is safe to run this action without a human approving it first",
+   0.1,
+   "no"
+  ],
+  [
+   "A human should approve this action before it runs",
+   0.335,
+   "no"
+  ],
+  [
+   "The action is destructive and cannot be undone",
+   0.946,
    "yes"
   ]
  ],
  "demo-unseen-library-notice.png": [
   [
    "The reader needs to do something",
-   0.142,
+   0.098,
    "no"
   ],
   [
    "No action is needed from the reader",
-   0.673,
+   0.806,
    "yes"
   ],
   [
    "Is this message a scam?",
-   0.032,
+   0.012,
    "no"
   ]
  ]
