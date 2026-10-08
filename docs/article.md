@@ -33,6 +33,7 @@ Accuracy on three hand-labeled test sets that were never used for training:
 | Eight unseen domains (256 answers) | 80.1% | 89.8% | **95.3%** |
 | Familiar domains (120 answers) | 68.3% | 75.8% | **87.5%** |
 
+- **Watch the one-minute overview: [maya-overview.mp4](video/maya-overview.mp4)**
 - **Try it in your browser: [vishalmysore.github.io/maya](https://vishalmysore.github.io/maya/)**
 - Code, data, tests and every result: [github.com/vishalmysore/maya](https://github.com/vishalmysore/maya)
 - Model weights: [huggingface.co/VishalMysore/maya](https://huggingface.co/VishalMysore/maya)

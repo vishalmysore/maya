@@ -14,3 +14,4 @@ onnx==1.23.0
 onnxscript==0.7.2
 onnxruntime==1.25.0
 pytest
+imageio-ffmpeg

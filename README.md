@@ -5,6 +5,7 @@
 Maya v0.2 is a 435M-parameter cross-encoder fine-tuned from [DeBERTa-v3-large-zeroshot-v2.0](https://huggingface.co/MoritzLaurer/deberta-v3-large-zeroshot-v2.0).
 
 - **Live demo (runs in your browser): https://vishalmysore.github.io/maya/**
+- One-minute overview video: [docs/video/maya-overview.mp4](docs/video/maya-overview.mp4) (built by `scripts/record_demo.py` and `scripts/make_video.py`)
 - Article: [docs/article.md](docs/article.md): what Jev, Laya, NLI encoders and LLM guards are, how Maya differs, the v0.1 failure, the v0.2 fix, results and remaining failures, with screenshots.
 - Weights: [huggingface.co/VishalMysore/maya](https://huggingface.co/VishalMysore/maya) (PyTorch) and [huggingface.co/VishalMysore/mayaWasm](https://huggingface.co/VishalMysore/mayaWasm) (int8 ONNX for the browser, 600 MB). Maya v0.1 (ModernBERT-base, 150M) is kept under the `v0.1` tag of both repos.
 
