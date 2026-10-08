@@ -1,18 +1,29 @@
 ---
-title: "Maya: An Open Yes/No Model for AI Guardrails That Runs in the Browser"
-description: "Maya is an open yes/no classifier: give it a text and a statement and it returns the probability that the answer is yes. This article explains what Jev and Laya are, what NLI encoders and LLM guard models do, how Maya differs from them, how it was built on DeBERTa-v3-large, its results on 568 hand-labeled answers, and how it runs in the browser with ONNX Runtime Web."
-keywords: [yes/no classifier, AI guardrail model, LLM guardrails, Jev, Laya, decision model, System 1 model, typed decisions, natural language inference, NLI encoder, zero-shot classification, Llama Guard, ShieldGemma, Prompt Guard, DeBERTa-v3, fine-tuning, minimal pairs, model calibration, ONNX Runtime Web, WebAssembly, browser AI]
+title: "Maya: Open-Source Yes/No AI Guardrail Model (Runs in Browser)"
+description: "Maya is an open-source yes/no AI guardrail model. See how it compares with Jev, Laya, NLI encoders and LLM guards, with benchmarks and a live browser demo."
+keywords: [yes/no classifier, AI guardrail model, LLM guardrails, open-source guardrail model, Jev, Laya, decision model, System One model, typed decisions, natural language inference, NLI encoder, zero-shot classification, Llama Guard, ShieldGemma, Prompt Guard, DeBERTa-v3, fine-tuning, model calibration, ONNX Runtime Web, WebAssembly, browser AI, AI agent safety]
 author: Vishal Mysore
 date: 2026-10-08
-slug: maya-yes-no-ai-guardrail-model
-image: images/chart-accuracy.png
+slug: maya-open-source-yes-no-ai-guardrail-model
+image: images/maya-yes-no-in-between.jpg
+image_alt: "A figure in a forest, half solid and half dissolving into smoke: yes, no, or something in between"
 ---
 
-# Maya: An Open Yes/No Model for AI Guardrails That Runs in the Browser
+# Maya: Open-Source Yes/No AI Guardrail Model (Runs in Browser)
 
-**Every answer is yes, no, or something in between.**
+![A figure in a forest, half solid and half dissolving into smoke](images/maya-yes-no-in-between.jpg)
 
-Maya is an open **yes/no classifier**. You give it a text and a statement ("this change can be undone", "is the customer angry?") and it returns the probability that the answer is yes. It belongs to the same family as the decision models **Jev** and **Laya**, is built on an **NLI encoder**, and does a job close to that of **LLM guard** models. This article explains each of those, shows how Maya differs, and reports how well it works.
+*Every answer is yes, no, or something in between.*
+
+**Maya is an open-source yes/no AI guardrail model.** You give it a text and a statement ("this change can be undone", "is the customer angry?") and it returns the probability that the answer is yes. It is built for the binary checks that LLM agents and AI applications run constantly: should this action go ahead, does this ticket need a person, is this message a scam.
+
+Maya belongs to the same family as the decision models **Jev** and **Laya**, is built on an **NLI encoder**, and does a job close to that of **LLM guard** models such as Llama Guard. This article explains each of those, shows how Maya differs, and reports its benchmark results.
+
+**Key takeaways**
+- Maya answers any yes/no question about a text and returns a probability, not generated text.
+- On hand-labeled tests it scores 87.5% on judgment questions and 95.3% on unseen domains, ahead of Laya and of the best zero-shot NLI model.
+- It contradicts itself far less: 12% of statement/negation pairs get the same answer, where its zero-shot starting point is at 73%.
+- It is open source and runs fully in the browser with ONNX Runtime Web, so no text leaves the device.
 
 Accuracy on three hand-labeled test sets that were never used for training:
 
@@ -31,23 +42,23 @@ Accuracy on three hand-labeled test sets that were never used for training:
 
 ## Contents
 
-1. [What is Jev?](#what-is-jev)
-2. [What is Laya?](#what-is-laya)
-3. [What is Maya?](#what-is-maya)
-4. [What are NLI encoders?](#what-are-nli-encoders)
-5. [What are LLM guards?](#what-are-llm-guards)
-6. [How is Maya different?](#how-is-maya-different)
+1. [What is Jev? TypeSafe's System One decision model](#what-is-jev-typesafes-system-one-decision-model)
+2. [What is Laya? An open decision model](#what-is-laya-an-open-decision-model)
+3. [What is Maya? A dedicated yes/no AI guardrail model](#what-is-maya-a-dedicated-yesno-ai-guardrail-model)
+4. [What are NLI encoders? Natural language inference explained](#what-are-nli-encoders-natural-language-inference-explained)
+5. [What are LLM guards? Llama Guard, ShieldGemma and Prompt Guard](#what-are-llm-guards-llama-guard-shieldgemma-and-prompt-guard)
+6. [How is Maya different from Jev, Laya, NLI models and LLM guards?](#how-is-maya-different-from-jev-laya-nli-models-and-llm-guards)
 7. [How Maya works](#how-maya-works)
-8. [How Maya was built](#how-maya-was-built)
-9. [The test sets](#the-test-sets)
-10. [Results](#results)
-11. [Maya in action](#maya-in-action)
-12. [Yes, no, or not sure](#yes-no-or-not-sure)
-13. [Running Maya in the browser](#running-maya-in-the-browser)
+8. [How Maya was built: training data and fine-tuning](#how-maya-was-built-training-data-and-fine-tuning)
+9. [How Maya was tested](#how-maya-was-tested)
+10. [Results: Maya benchmark accuracy](#results-maya-benchmark-accuracy)
+11. [Maya in action: guardrail examples](#maya-in-action-guardrail-examples)
+12. [Yes, no, or not sure: abstention](#yes-no-or-not-sure-abstention)
+13. [Running Maya in the browser with ONNX Runtime Web](#running-maya-in-the-browser-with-onnx-runtime-web)
 14. [Limitations](#limitations)
-15. [FAQ](#faq)
+15. [Frequently asked questions](#frequently-asked-questions)
 
-## What is Jev?
+## What is Jev? TypeSafe's System One decision model
 
 Jev is a hosted **decision model** from TypeSafe AI, launched in September 2026. TypeSafe calls it a "System One" model, after Daniel Kahneman's term for fast, intuitive judgment.
 
@@ -63,7 +74,7 @@ Jev is a hosted **decision model** from TypeSafe AI, launched in September 2026.
 
 **Availability.** Jev's weights are closed and it is reached through an API. It was not benchmarked in this project; what is said about it here is its public description.
 
-## What is Laya?
+## What is Laya? An open decision model
 
 [Laya](https://huggingface.co/convaiinnovations/laya-typed-decisions) is an **open** decision model from ConvAI Innovations that follows the same design: a state plus typed questions (choice, score, yes/no) in, probabilities out.
 
@@ -73,7 +84,7 @@ Jev is a hosted **decision model** from TypeSafe AI, launched in September 2026.
 
 Laya answers all three question types from one encoder pass.
 
-## What is Maya?
+## What is Maya? A dedicated yes/no AI guardrail model
 
 Maya takes one of those three question types, **yes/no**, and gives it a dedicated model.
 
@@ -87,7 +98,7 @@ Maya takes one of those three question types, **yes/no**, and gives it a dedicat
 - A single probability is the easiest output to calibrate.
 - "X" and "not X" should never both be true, and that can be tested and trained for.
 
-## What are NLI encoders?
+## What are NLI encoders? Natural language inference explained
 
 **Natural language inference (NLI)** is the task of deciding whether one sentence follows from another. Given a *premise* ("The parcel arrived smashed") and a *hypothesis* ("The item was damaged"), an NLI model labels the pair as entailment, contradiction or neutral.
 
@@ -99,7 +110,7 @@ Maya takes one of those three question types, **yes/no**, and gives it a dedicat
 
 Maya is built on an NLI encoder and keeps its strength on facts, then adds the judgment reading through fine-tuning.
 
-## What are LLM guards?
+## What are LLM guards? Llama Guard, ShieldGemma and Prompt Guard
 
 **LLM guards** are models that sit next to a large language model and check what goes in or comes out. Well-known examples are Llama Guard and Prompt Guard from Meta and ShieldGemma from Google.
 
@@ -109,7 +120,7 @@ Maya is built on an NLI encoder and keeps its strength on facts, then adds the j
 
 **Where Maya fits.** A guard answers the questions it was trained for. It does not answer "can this database change be undone?", "does this invoice match the quote?" or "is this customer about to cancel?". Those are application-specific yes/no questions, and they are the ones Maya is for. Maya complements a content-safety guard; it does not replace one.
 
-## How is Maya different?
+## How is Maya different from Jev, Laya, NLI models and LLM guards?
 
 | | Jev | Laya | Zero-shot NLI encoder | LLM guard | **Maya** |
 |---|---|---|---|---|---|
@@ -150,7 +161,7 @@ maya.ask("Agent plan: delete the `sessions` table on the production database. A 
 
 ![The Maya demo before loading: a Load button, an example picker, a text box and a box for yes/no questions](images/demo-start.png)
 
-## How Maya was built
+## How Maya was built: training data and fine-tuning
 
 ### The base model
 
@@ -187,7 +198,7 @@ The data is generated by rules, so every label is correct by construction: 5,687
 - The checkpoint was chosen on a separate 64-answer dev set, not on the test sets.
 - One practical note: load these models in float32 on CPU. The bfloat16 default makes CPU training about 100 times slower.
 
-## The test sets
+## How Maya was tested
 
 Accuracy alone flatters yes/no models: on one of these sets, answering "no" to everything scores 62.5%. So every model is measured on three hand-labeled sets and on more than accuracy.
 
@@ -210,7 +221,7 @@ Every case in the first two sets has built-in checks:
 - No training text shares a five-word sequence with any test text.
 - No training statement equals a statement from the judgment or unseen-domain sets.
 
-## Results
+## Results: Maya benchmark accuracy
 
 ![Bar chart of accuracy on the three test sets for Laya, zero-shot DeBERTa-v3-large and Maya. Maya scores 87.5%, 95.3% and 87.5%](images/chart-accuracy.png)
 
@@ -240,7 +251,7 @@ Fine-tuning adds 14.6 points on judgment questions and 5.5 points on unseen doma
 
 **Speed.** On a laptop CPU in Python, one question takes about 0.55 s and twenty questions about one text take 4.4 s.
 
-## Maya in action
+## Maya in action: guardrail examples
 
 All of these are from the live demo.
 
@@ -266,7 +277,7 @@ All of these are from the live demo.
 
 ![Maya on a four-star product review: the reviewer would recommend it, does not advise against it, did not send it back](images/demo-product-review.png)
 
-## Yes, no, or not sure
+## Yes, no, or not sure: abstention
 
 By default Maya answers strictly yes or no, at a threshold of 0.5.
 
@@ -276,7 +287,7 @@ You can also set a **band**. Answers above the upper threshold are "yes", answer
 
 In the demo you set the band by hand with two sliders. For a band with a **guaranteed error rate**, the repository includes a module (`maya/conformal.py`) that fits the two thresholds on labeled examples of your own inputs, so that among the questions Maya answers, the error stays under a target you choose. It needs a few hundred labeled examples to certify a tight bound.
 
-## Running Maya in the browser
+## Running Maya in the browser with ONNX Runtime Web
 
 **The build**
 - One ONNX graph with **int8 weight-only quantization**, about 600 MB, split into 24 MiB parts with SHA-256 hashes.
@@ -304,7 +315,7 @@ In the demo you set the band by hand with two sliders. For a band with a **guara
 - **Yes/no only, English only.** It cannot refuse a question that is not yes/no.
 - **Commercial use.** Maya's code and weights are released under Apache-2.0, but the base model's card says its non-"-c" versions were trained on data that includes non-commercially licensed datasets. Check before commercial use.
 
-## FAQ
+## Frequently asked questions
 
 **What is Maya?**
 Maya is an open yes/no classifier. Given a text and a statement or yes/no question, it returns the probability that the answer is yes. It is a 435M-parameter fine-tune of DeBERTa-v3-large-zeroshot-v2.0.
