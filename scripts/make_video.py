@@ -4,7 +4,8 @@
     python scripts/make_video.py
 
 Scenes: title card (hero image), what Maya does, the recorded browser demo, results chart,
-LLM guards vs Maya, end card with links. Cards are drawn with Pillow; ffmpeg comes from imageio-ffmpeg.
+LLM guards vs Maya, end card with links, with a narration track from the Windows built-in voice.
+Cards are drawn with Pillow; ffmpeg comes from imageio-ffmpeg.
 """
 import json
 import subprocess
@@ -19,6 +20,37 @@ OUT = ROOT / "docs" / "video"
 W, H, FPS = 1280, 720, 30
 BG, INK, MUTED, ACCENT, YES, NO = "#161615", "#f3f2ee", "#b4b3ac", "#7d9cf0", "#4cc38a", "#ef7a6d"
 FONT_DIR = Path("C:/Windows/Fonts")
+
+
+# One narration line per scene. Demo lines are keyed by the scene names written by record_demo.py.
+NARRATION = {
+    "title": "L L M guards versus Maya. A lightweight yes or no safety gate for A I agents.",
+    "what": "Give Maya a text and a yes or no question. It returns the probability that the answer is yes.",
+    "ready": "It runs fully in your browser.",
+    "ticket": "Here is an angry support ticket. Maya says the customer is angry, not calm, and that something is broken.",
+    "backup": "An agent wants to delete a production table, but a backup exists. Maya says the action can be undone.",
+    "band": "Set a band, and uncertain answers become not sure. Yes, no, or something in between.",
+    "chart": "On five hundred sixty eight hand labeled answers, Maya is more accurate than Laya, and than the best zero shot model.",
+    "versus": "L L M guards check a fixed list of safety categories. Maya answers any yes or no question you write.",
+    "end": "Maya is open source. Try the live demo in your browser.",
+}
+VOICE, RATE = "Microsoft Zira Desktop", 1  # Windows built-in voice (offline); rate -10..10
+
+
+def synthesize(lines, out_dir):
+    """Write one WAV per line with the Windows speech synthesizer; return {name: seconds}."""
+    import wave
+    job = out_dir / "narration.json"
+    job.write_text(json.dumps({k: {"text": v, "wav": str(out_dir / f"voice_{k}.wav")} for k, v in lines.items()}), encoding="utf-8")
+    ps = (f"Add-Type -AssemblyName System.Speech; $j = Get-Content -Raw '{job}' | ConvertFrom-Json; "
+          f"$s = New-Object System.Speech.Synthesis.SpeechSynthesizer; $s.SelectVoice('{VOICE}'); $s.Rate = {RATE}; "
+          "foreach ($p in $j.PSObject.Properties) { $s.SetOutputToWaveFile($p.Value.wav); $s.Speak($p.Value.text) }; $s.Dispose()")
+    subprocess.run(["powershell", "-NoProfile", "-Command", ps], check=True)
+    out = {}
+    for k in lines:
+        with wave.open(str(out_dir / f"voice_{k}.wav")) as w:
+            out[k] = w.getnframes() / w.getframerate()
+    return out
 
 
 def font(size, bold=False):
@@ -146,34 +178,56 @@ def main():
     scenes = {s["name"]: s["t"] for s in json.loads((WORK / "demo_scenes.json").read_text(encoding="utf-8"))}
     demo_start, demo_len = scenes["ready"], scenes["end"] - scenes["ready"]
 
+    voice = synthesize(NARRATION, WORK)
     cards = [("title", title_card, 5.5), ("what", what_card, 6.5), ("chart", chart_card, 6.5),
              ("versus", versus_card, 7.5), ("end", end_card, 6.0)]
     for name, fn, _ in cards:
         fn(WORK / f"card_{name}.png")
-    dur = {n: t for n, _, t in cards}
+    # a card stays on screen at least as long as its narration (plus a short pause)
+    dur = {n: max(t, voice[n] + 1.0) for n, _, t in cards}
 
     filters, labels = [], []
     order = ["title", "what", "DEMO", "chart", "versus", "end"]
     cmd = [ff, "-y", "-loglevel", "error"]
-    idx = 0
+    starts, t, idx = {}, 0.0, 0
     for o in order:
         if o == "DEMO":
             cmd += ["-ss", f"{demo_start:.2f}", "-t", f"{demo_len:.2f}", "-i", str(WORK / "demo.webm")]
             filters.append(f"[{idx}:v]fps={FPS},scale={W}:{H}:flags=lanczos,setsar=1,format=yuv420p,"
                            f"fade=t=in:st=0:d=0.4,fade=t=out:st={demo_len - 0.4:.2f}:d=0.4[v{idx}]")
+            for name in ("ready", "ticket", "backup", "band"):
+                starts[name] = t + scenes[name] - demo_start
+            t += demo_len
         else:
-            cmd += ["-loop", "1", "-t", str(dur[o]), "-i", str(WORK / f"card_{o}.png")]
+            cmd += ["-loop", "1", "-t", f"{dur[o]:.2f}", "-i", str(WORK / f"card_{o}.png")]
             filters.append(f"[{idx}:v]fps={FPS},scale={W}:{H},setsar=1,format=yuv420p,"
                            f"fade=t=in:st=0:d=0.5,fade=t=out:st={dur[o] - 0.5:.2f}:d=0.5[v{idx}]")
+            starts[o] = t
+            t += dur[o]
         labels.append(f"[v{idx}]")
         idx += 1
-    total = sum(dur.values()) + demo_len
-    cmd += ["-f", "lavfi", "-t", f"{total:.2f}", "-i", "anullsrc=channel_layout=stereo:sample_rate=44100"]
+    total = t
     filters.append("".join(labels) + f"concat=n={len(labels)}:v=1:a=0[v]")
+
+    # narration: each clip delayed to its scene start (+0.4 s), then mixed into one track
+    alabels = []
+    for name in NARRATION:
+        cmd += ["-i", str(WORK / f"voice_{name}.wav")]
+        ms = int((starts[name] + 0.4) * 1000)
+        filters.append(f"[{idx}:a]aresample=44100,adelay={ms}|{ms}[a{idx}]")
+        alabels.append(f"[a{idx}]")
+        idx += 1
+    filters.append("".join(alabels) + f"amix=inputs={len(alabels)}:normalize=0,apad,atrim=0:{total:.2f}[a]")
+    for name in ("ready", "ticket", "backup", "band"):
+        nxt = {"ready": "ticket", "ticket": "backup", "backup": "band", "band": None}[name]
+        room = (starts[nxt] if nxt else starts["chart"]) - starts[name] - 0.4
+        assert voice[name] <= room, f"narration '{name}' is {voice[name]:.1f}s but its scene has {room:.1f}s"
+
     out = OUT / "maya-overview.mp4"
-    cmd += ["-filter_complex", ";".join(filters), "-map", "[v]", "-map", f"{idx}:a", "-c:v", "libx264", "-preset", "medium",
-            "-crf", "20", "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "96k", "-shortest", "-movflags", "+faststart", str(out)]
+    cmd += ["-filter_complex", ";".join(filters), "-map", "[v]", "-map", "[a]", "-c:v", "libx264", "-preset", "medium",
+            "-crf", "20", "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "128k", "-movflags", "+faststart", str(out)]
     subprocess.run(cmd, check=True)
+    print({k: round(v, 1) for k, v in voice.items()})
     print(f"{out}  {out.stat().st_size / 1e6:.1f} MB  {total:.1f} s")
 
 
